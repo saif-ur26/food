@@ -1,73 +1,124 @@
-# Welcome to your Lovable project
+# Daily Dish Delights
 
-## Project info
+A modern food delivery application for fresh, homemade meals delivered daily.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Project Overview
 
-## How can I edit this code?
+Daily Dish Delights is a comprehensive meal delivery platform that offers:
+- **Fresh Daily Meals**: Homemade Indian meals with dal, rice, sabzi, and roti
+- **Flexible Plans**: Daily, weekly, and monthly meal subscriptions
+- **Payment Options**: Prepaid and postpaid payment methods
+- **Razorpay Integration**: Secure payment processing
+- **User Management**: Authentication and order tracking
 
-There are several ways of editing your application.
+## Features
 
-**Use Lovable**
+- 🍽️ **Meal Plans**: Daily (₹149), Weekly (₹899), Monthly (₹3839)
+- 💳 **Payment Integration**: Razorpay for secure transactions
+- 📱 **Responsive Design**: Works on all devices
+- 🔐 **User Authentication**: Supabase auth integration
+- 📊 **Admin Dashboard**: Order management and analytics
+- 🚚 **Order Tracking**: Real-time order status updates
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Tech Stack
 
-Changes made via Lovable will be committed automatically to this repo.
+- **Frontend**: React 18, TypeScript, Vite
+- **UI Components**: shadcn/ui, Tailwind CSS
+- **Backend**: Supabase (Database, Auth, Edge Functions)
+- **Payment**: Razorpay
+- **State Management**: TanStack Query
+- **Routing**: React Router DOM
 
-**Use your preferred IDE**
+## Getting Started
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Prerequisites
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+- Node.js 18+ and npm
+- Supabase account
+- Razorpay account
 
-Follow these steps:
+### Installation
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+1. Clone the repository:
+```bash
+git clone https://github.com/YOUR_NEW_USERNAME/daily-dish-delights.git
+cd daily-dish-delights
+```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+2. Install dependencies:
+```bash
+npm install
+```
 
-# Step 3: Install the necessary dependencies.
-npm i
+3. Set up environment variables:
+```bash
+cp .env.example .env
+```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+4. Configure your `.env` file:
+```env
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_anon_key
+```
+
+5. Start the development server:
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Environment Setup
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Supabase Configuration
 
-**Use GitHub Codespaces**
+1. Create a new Supabase project
+2. Run the migrations in `supabase/migrations/`
+3. Deploy the edge functions in `supabase/functions/`
+4. Set up the following environment variables in Supabase:
+   - `RAZORPAY_KEY_ID`
+   - `RAZORPAY_KEY_SECRET`
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Razorpay Configuration
 
-## What technologies are used for this project?
+1. Create a Razorpay account
+2. Get your API keys from the dashboard
+3. Add them to your Supabase edge functions environment
 
-This project is built with:
+## Deployment
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Frontend Deployment
 
-## How can I deploy this project?
+The app can be deployed to:
+- Vercel
+- Netlify
+- GitHub Pages
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+### Backend Deployment
 
-## Can I connect a custom domain to my Lovable project?
+Supabase handles the backend deployment automatically.
 
-Yes, you can!
+## Project Structure
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+```
+daily-dish-delights/
+├── src/
+│   ├── components/          # Reusable UI components
+│   ├── pages/              # Route components
+│   ├── hooks/              # Custom React hooks
+│   ├── integrations/       # External service integrations
+│   └── lib/                # Utility functions
+├── supabase/
+│   ├── functions/          # Edge functions
+│   └── migrations/         # Database migrations
+└── public/                 # Static assets
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License.
