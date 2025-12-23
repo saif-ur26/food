@@ -27,17 +27,28 @@ serve(async (req: Request) => {
       throw new Error("Invalid amount provided");
     }
 
-    const keyId = Deno.env.get("RAZORPAY_KEY_ID");
-    const keySecret = Deno.env.get("RAZORPAY_KEY_SECRET");
+    const keyIdRaw = Deno.env.get("RAZORPAY_KEY_ID");
+    const keySecretRaw = Deno.env.get("RAZORPAY_KEY_SECRET");
+
+    const keyId = keyIdRaw?.trim();
+    const keySecret = keySecretRaw?.trim();
 
     if (!keyId || !keySecret) {
       console.error("Razorpay credentials not configured");
       throw new Error("Payment gateway not configured");
     }
 
+    // Safe diagnostics (do NOT log secrets)
+    console.log("Razorpay credentials loaded:", {
+      keyIdPrefix: keyId.slice(0, 8),
+      keyIdLength: keyId.length,
+      keySecretLength: keySecret.length,
+      keySecretHasWhitespace: keySecret !== keySecretRaw,
+    });
+
     // Create Razorpay order using their API
     const authHeader = btoa(`${keyId}:${keySecret}`);
-    
+
     const orderResponse = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
       headers: {
