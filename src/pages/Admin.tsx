@@ -7,8 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { Package, Calendar, CalendarDays, Check, X, Loader2, UtensilsCrossed, Plus, Trash2, Save, Lock } from "lucide-react";
-import { Label } from "recharts";
-import { Label } from "recharts";
+import { Label } from "@/components/ui/label";
 
 // (Keep the interfaces and constants from the original file)
 interface Order {
@@ -164,7 +163,7 @@ const AdminDashboard = () => {
               </div>
               <div>
                 <h1 className="font-display font-bold text-foreground">Admin Dashboard</h1>
-                <p className="text-xs text-muted-foreground">HomeMeals Order Management</p>
+                <p className="text-xs text-muted-foreground">Express Home Meals Order Management</p>
               </div>
             </div>
           </div>

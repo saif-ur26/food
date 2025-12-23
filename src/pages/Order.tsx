@@ -184,7 +184,7 @@ const Order = () => {
         key: razorpayData.keyId,
         amount: razorpayData.amount,
         currency: razorpayData.currency,
-        name: "Daily Dish Delights",
+        name: "Express Home Meals",
         description: `${currentPlan.name} - ${paymentType === "postpaid" ? "Advance Payment" : "Full Payment"}`,
         // Note: order_id is optional for simple payments
         handler: async (response: any) => {

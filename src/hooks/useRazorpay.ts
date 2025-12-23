@@ -109,7 +109,7 @@ export const useRazorpay = ({ onSuccess, onError }: UseRazorpayProps = {}) => {
                 key: orderData.keyId,
                 amount: orderData.amount,
                 currency: orderData.currency,
-                name: "Daily Dish Delights",
+                name: "Express Home Meals",
                 description: `${planName} - Fresh homemade meals`,
                 order_id: orderData.orderId,
                 handler: async (response) => {

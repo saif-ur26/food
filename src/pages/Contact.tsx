@@ -59,8 +59,8 @@ const Contact = () => {
     {
       icon: Mail,
       title: "Email",
-      value: "hello@homemeals.in",
-      link: "mailto:hello@homemeals.in",
+      value: "hello@expresshomemeals.com",
+      link: "mailto:hello@expresshomemeals.com",
     },
     {
       icon: MapPin,

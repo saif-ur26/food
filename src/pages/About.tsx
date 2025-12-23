@@ -41,7 +41,7 @@ const About = () => {
         <div className="container mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center">
             <h1 className="font-display text-4xl md:text-5xl font-bold text-foreground mb-6">
-              About <span className="text-gradient">HomeMeals</span>
+              About <span className="text-gradient">Express Home Meals</span>
             </h1>
             <p className="text-lg text-muted-foreground">
               We believe that everyone deserves access to delicious, nutritious, and affordable
@@ -65,7 +65,7 @@ const About = () => {
               </h2>
               <div className="space-y-4 text-muted-foreground">
                 <p>
-                  HomeMeals started with a simple idea: to provide busy professionals, students,
+                  Express Home Meals started with a simple idea: to provide busy professionals, students,
                   and families with the same quality of food they would get at home, but without
                   the hassle of cooking.
                 </p>

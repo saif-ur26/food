@@ -29,7 +29,7 @@ const Header = () => {
               <UtensilsCrossed className="w-5 h-5 text-primary-foreground" />
             </div>
             <span className="font-display text-xl font-bold text-foreground">
-              HomeMeals
+              Express Home Meals
             </span>
           </Link>
 
@@ -39,11 +39,10 @@ const Header = () => {
               <Link
                 key={link.path}
                 to={link.path}
-                className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
-                  isActive(link.path)
+                className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 ${isActive(link.path)
                     ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`}
+                  }`}
               >
                 {link.name}
               </Link>
@@ -91,11 +90,10 @@ const Header = () => {
                   key={link.path}
                   to={link.path}
                   onClick={() => setIsMenuOpen(false)}
-                  className={`px-4 py-3 rounded-lg font-medium transition-all ${
-                    isActive(link.path)
+                  className={`px-4 py-3 rounded-lg font-medium transition-all ${isActive(link.path)
                       ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
+                    }`}
                 >
                   {link.name}
                 </Link>

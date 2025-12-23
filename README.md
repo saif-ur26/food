@@ -1,10 +1,10 @@
-# Daily Dish Delights
+# Express Home Meals
 
 A modern food delivery application for fresh, homemade meals delivered daily.
 
 ## Project Overview
 
-Daily Dish Delights is a comprehensive meal delivery platform that offers:
+Express Home Meals is a comprehensive meal delivery platform that offers:
 - **Fresh Daily Meals**: Homemade Indian meals with dal, rice, sabzi, and roti
 - **Flexible Plans**: Daily, weekly, and monthly meal subscriptions
 - **Payment Options**: Prepaid and postpaid payment methods

@@ -1,6 +1,6 @@
-# Daily Dish Delights - Setup Guide
+# Express Home Meals - Setup Guide
 
-This guide will help you set up the Daily Dish Delights application with all necessary integrations.
+This guide will help you set up the Express Home Meals application with all necessary integrations.
 
 ## Prerequisites
 
