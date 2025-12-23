@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import Header from "@/components/Header";
@@ -5,6 +6,7 @@ import Footer from "@/components/Footer";
 import DynamicMealPlans from "@/components/DynamicMealPlans";
 import DailyMenu from "@/components/DailyMenu";
 import OfferBanner from "@/components/OfferBanner";
+import { getPricingPlans, getTodayMenu } from "@/lib/pricing";
 import heroImage from "@/assets/hero-meals.jpg";
 import { ArrowRight, Clock, Leaf, Heart, Truck } from "lucide-react";
 
@@ -32,6 +34,54 @@ const features = [
 ];
 
 const Index = () => {
+  const [dailyPrice, setDailyPrice] = useState(149);
+  const [todayMenu, setTodayMenu] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch pricing plans
+        const plans = await getPricingPlans();
+        const dailyPlan = plans.find(plan => plan.plan_type === 'daily');
+        if (dailyPlan) {
+          setDailyPrice(dailyPlan.current_price);
+        }
+
+        // Fetch today's menu
+        const menu = await getTodayMenu();
+        setTodayMenu(menu);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Get today's special from menu
+  const getTodaysSpecial = () => {
+    if (todayMenu.length === 0) return "Fresh Home Meal";
+
+    // Try to find main items (dal, rice, sabzi, etc.)
+    const mainItems = todayMenu.filter(item =>
+      item.toLowerCase().includes('dal') ||
+      item.toLowerCase().includes('rice') ||
+      item.toLowerCase().includes('sabzi') ||
+      item.toLowerCase().includes('curry')
+    );
+
+    if (mainItems.length >= 2) {
+      return `${mainItems[0]} + ${mainItems[1]}`;
+    } else if (mainItems.length === 1) {
+      return `${mainItems[0]} + Rice`;
+    } else {
+      // Fallback to first two items
+      return todayMenu.length >= 2 ? `${todayMenu[0]} + ${todayMenu[1]}` : todayMenu[0] || "Fresh Home Meal";
+    }
+  };
   return (
     <div className="min-h-screen bg-background">
       <OfferBanner />
@@ -80,7 +130,7 @@ const Index = () => {
                 </div>
                 <div className="w-px h-12 bg-border"></div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-foreground">₹149</p>
+                  <p className="text-2xl font-bold text-foreground">₹{dailyPrice}</p>
                   <p className="text-sm text-muted-foreground">Starting At</p>
                 </div>
               </div>
@@ -98,8 +148,8 @@ const Index = () => {
               {/* Floating card */}
               <div className="absolute -bottom-4 -left-4 bg-card rounded-xl p-4 shadow-warm animate-float">
                 <p className="text-sm font-medium text-muted-foreground">Today's Special</p>
-                <p className="font-display font-bold text-foreground">Dal Tadka + Rice</p>
-                <p className="text-primary font-semibold">₹149 only</p>
+                <p className="font-display font-bold text-foreground">{getTodaysSpecial()}</p>
+                <p className="text-primary font-semibold">₹{dailyPrice} only</p>
               </div>
             </div>
           </div>
