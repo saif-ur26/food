@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -12,18 +13,18 @@ import { toast } from "@/hooks/use-toast";
 import { Check, Phone, CreditCard, Wallet } from "lucide-react";
 
 const mealPlans = [
-  { id: "daily-meal", name: "Daily Meal", price: 149, postpaidPrice: 179, days: 1 },
-  { id: "weekly-plan", name: "Weekly Plan", price: 899, postpaidPrice: 1079, days: 7 },
-  { id: "15-day-plan", name: "15-Day Plan", price: 1919, postpaidPrice: 2299, days: 15 },
-  { id: "monthly-plan", name: "Monthly Plan", price: 3839, postpaidPrice: 4599, days: 30 },
+  { id: "daily", name: "Daily Meal", price: 149, postpaidPrice: 179, days: 1, planType: "daily" as const },
+  { id: "weekly", name: "Weekly Plan", price: 899, postpaidPrice: 1079, days: 7, planType: "weekly" as const },
+  { id: "fifteen_day", name: "15-Day Plan", price: 1919, postpaidPrice: 2299, days: 15, planType: "fifteen_day" as const },
+  { id: "monthly", name: "Monthly Plan", price: 3839, postpaidPrice: 4599, days: 30, planType: "monthly" as const },
 ];
 
 const Order = () => {
   const [searchParams] = useSearchParams();
-  const initialPlan = searchParams.get("plan") || "daily-meal";
+  const initialPlan = searchParams.get("plan") || "daily";
 
   const [selectedPlan, setSelectedPlan] = useState(initialPlan);
-  const [paymentType, setPaymentType] = useState("prepaid");
+  const [paymentType, setPaymentType] = useState<"prepaid" | "postpaid">("prepaid");
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -66,14 +67,30 @@ const Order = () => {
 
     setIsSubmitting(true);
 
-    // Simulate order placement
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const { error } = await supabase.from("orders").insert({
+      customer_name: formData.name,
+      phone: formData.phone,
+      address: formData.address,
+      plan_type: currentPlan.planType,
+      payment_type: paymentType,
+      total_amount: totalPrice,
+    });
 
     setIsSubmitting(false);
+
+    if (error) {
+      toast({
+        title: "Order Failed",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setOrderPlaced(true);
 
     toast({
-      title: "Order Placed Successfully! 🎉",
+      title: "Order Placed Successfully!",
       description: "We'll contact you shortly to confirm your order.",
     });
   };
@@ -199,7 +216,7 @@ const Order = () => {
                 <CardContent>
                   <RadioGroup
                     value={paymentType}
-                    onValueChange={setPaymentType}
+                    onValueChange={(value) => setPaymentType(value as "prepaid" | "postpaid")}
                     className="grid grid-cols-1 sm:grid-cols-2 gap-4"
                   >
                     <Label

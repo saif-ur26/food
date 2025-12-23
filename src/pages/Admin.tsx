@@ -1,130 +1,180 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
-import { Lock, Package, Calendar, CalendarDays, Check, X, LogOut } from "lucide-react";
+import { Package, Calendar, CalendarDays, Check, X, LogOut, Loader2 } from "lucide-react";
+import { User, Session } from "@supabase/supabase-js";
 
-// Mock order data
-const mockOrders = {
-  daily: [
-    { id: 1, name: "Rahul Kumar", phone: "9876543210", address: "123 Main St", plan: "Daily Meal", amount: 149, status: "pending" },
-    { id: 2, name: "Priya Sharma", phone: "9876543211", address: "456 Park Ave", plan: "Daily Meal", amount: 179, status: "delivered" },
-    { id: 3, name: "Amit Singh", phone: "9876543212", address: "789 Lake View", plan: "Daily Meal", amount: 149, status: "pending" },
-  ],
-  weekly: [
-    { id: 4, name: "Neha Patel", phone: "9876543213", address: "101 Green St", plan: "Weekly Plan", amount: 899, status: "pending", daysRemaining: 5 },
-    { id: 5, name: "Vikram Rao", phone: "9876543214", address: "202 Blue Ave", plan: "Weekly Plan", amount: 899, status: "pending", daysRemaining: 3 },
-  ],
-  monthly: [
-    { id: 6, name: "Anita Gupta", phone: "9876543215", address: "303 Red Lane", plan: "Monthly Plan", amount: 3839, status: "pending", daysRemaining: 22 },
-    { id: 7, name: "Suresh Kumar", phone: "9876543216", address: "404 Yellow Blvd", plan: "Monthly Plan", amount: 3839, status: "pending", daysRemaining: 18 },
-  ],
+interface Order {
+  id: string;
+  customer_name: string;
+  phone: string;
+  address: string;
+  plan_type: "daily" | "weekly" | "fifteen_day" | "monthly";
+  payment_type: "prepaid" | "postpaid";
+  total_amount: number;
+  status: "pending" | "delivered" | "cancelled";
+  created_at: string;
+}
+
+const planLabels: Record<string, string> = {
+  daily: "Daily Meal",
+  weekly: "Weekly Plan",
+  fifteen_day: "15-Day Plan",
+  monthly: "Monthly Plan",
 };
 
 const Admin = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [password, setPassword] = useState("");
-  const [orders, setOrders] = useState(mockOrders);
+  const navigate = useNavigate();
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [orders, setOrders] = useState<Order[]>([]);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password === "saif@100") {
-      setIsAuthenticated(true);
-      toast({
-        title: "Welcome, Admin!",
-        description: "You are now logged in.",
-      });
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (!session) {
+        navigate("/auth");
+      } else {
+        setTimeout(() => {
+          checkAdminRole(session.user.id);
+        }, 0);
+      }
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (!session) {
+        navigate("/auth");
+      } else {
+        checkAdminRole(session.user.id);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  const checkAdminRole = async (userId: string) => {
+    const { data, error } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+
+    if (data) {
+      setIsAdmin(true);
+      fetchOrders();
     } else {
-      toast({
-        title: "Invalid Password",
-        description: "Please enter the correct password.",
-        variant: "destructive",
-      });
+      // For first admin setup, auto-assign admin role
+      const { data: existingRoles } = await supabase
+        .from("user_roles")
+        .select("id")
+        .limit(1);
+
+      if (!existingRoles || existingRoles.length === 0) {
+        // First user becomes admin
+        await supabase.from("user_roles").insert({
+          user_id: userId,
+          role: "admin",
+        });
+        setIsAdmin(true);
+        fetchOrders();
+        toast({
+          title: "Admin Access Granted",
+          description: "You are the first user and have been granted admin access.",
+        });
+      } else {
+        toast({
+          title: "Access Denied",
+          description: "You don't have admin privileges.",
+          variant: "destructive",
+        });
+        navigate("/");
+      }
+    }
+    setIsLoading(false);
+  };
+
+  const fetchOrders = async () => {
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (data) {
+      setOrders(data as Order[]);
     }
   };
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setPassword("");
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/auth");
   };
 
-  const markAsDelivered = (type: "daily" | "weekly" | "monthly", orderId: number) => {
-    setOrders((prev) => ({
-      ...prev,
-      [type]: prev[type].map((order) =>
-        order.id === orderId ? { ...order, status: "delivered" } : order
-      ),
-    }));
+  const updateOrderStatus = async (orderId: string, newStatus: "pending" | "delivered") => {
+    const { error } = await supabase
+      .from("orders")
+      .update({ status: newStatus })
+      .eq("id", orderId);
+
+    if (error) {
+      toast({
+        title: "Update Failed",
+        description: "Could not update order status.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setOrders((prev) =>
+      prev.map((order) =>
+        order.id === orderId ? { ...order, status: newStatus } : order
+      )
+    );
+
     toast({
       title: "Order Updated",
-      description: "Order has been marked as delivered.",
+      description: `Order marked as ${newStatus}.`,
     });
   };
 
-  const markAsPending = (type: "daily" | "weekly" | "monthly", orderId: number) => {
-    setOrders((prev) => ({
-      ...prev,
-      [type]: prev[type].map((order) =>
-        order.id === orderId ? { ...order, status: "pending" } : order
-      ),
-    }));
-  };
-
-  if (!isAuthenticated) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md bg-card border-border shadow-warm">
-          <CardHeader className="text-center">
-            <div className="w-16 h-16 rounded-full gradient-warm flex items-center justify-center mx-auto mb-4">
-              <Lock className="w-8 h-8 text-primary-foreground" />
-            </div>
-            <CardTitle className="font-display text-2xl">Admin Login</CardTitle>
-            <p className="text-muted-foreground text-sm mt-2">
-              Enter your password to access the admin dashboard
-            </p>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <Label htmlFor="password" className="text-foreground">
-                  Password
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter admin password"
-                  className="mt-1"
-                  required
-                />
-              </div>
-              <Button type="submit" variant="hero" className="w-full">
-                Login
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
-  const OrderCard = ({
-    order,
-    type,
-  }: {
-    order: (typeof mockOrders.daily)[0] & { daysRemaining?: number };
-    type: "daily" | "weekly" | "monthly";
-  }) => (
+  if (!isAdmin) {
+    return null;
+  }
+
+  const dailyOrders = orders.filter((o) => o.plan_type === "daily");
+  const weeklyOrders = orders.filter((o) => o.plan_type === "weekly" || o.plan_type === "fifteen_day");
+  const monthlyOrders = orders.filter((o) => o.plan_type === "monthly");
+
+  const pendingDaily = dailyOrders.filter((o) => o.status === "pending").length;
+  const pendingWeekly = weeklyOrders.filter((o) => o.status === "pending").length;
+  const pendingMonthly = monthlyOrders.filter((o) => o.status === "pending").length;
+
+  const OrderCard = ({ order }: { order: Order }) => (
     <Card className="bg-card border-border">
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-3">
           <div>
-            <h4 className="font-semibold text-foreground">{order.name}</h4>
+            <h4 className="font-semibold text-foreground">{order.customer_name}</h4>
             <p className="text-sm text-muted-foreground">{order.phone}</p>
           </div>
           <Badge
@@ -141,18 +191,16 @@ const Admin = () => {
         <p className="text-sm text-muted-foreground mb-2">{order.address}</p>
         <div className="flex items-center justify-between pt-2 border-t border-border">
           <div>
-            <p className="text-xs text-muted-foreground">{order.plan}</p>
-            <p className="font-semibold text-primary">₹{order.amount}</p>
-            {order.daysRemaining && (
-              <p className="text-xs text-secondary">{order.daysRemaining} days remaining</p>
-            )}
+            <p className="text-xs text-muted-foreground">{planLabels[order.plan_type]}</p>
+            <p className="font-semibold text-primary">₹{order.total_amount}</p>
+            <p className="text-xs text-muted-foreground capitalize">{order.payment_type}</p>
           </div>
           <div className="flex gap-2">
             {order.status === "pending" ? (
               <Button
                 size="sm"
                 variant="leaf"
-                onClick={() => markAsDelivered(type, order.id)}
+                onClick={() => updateOrderStatus(order.id, "delivered")}
               >
                 <Check className="w-4 h-4" />
                 Delivered
@@ -161,7 +209,7 @@ const Admin = () => {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => markAsPending(type, order.id)}
+                onClick={() => updateOrderStatus(order.id, "pending")}
               >
                 <X className="w-4 h-4" />
                 Undo
@@ -172,10 +220,6 @@ const Admin = () => {
       </CardContent>
     </Card>
   );
-
-  const pendingDaily = orders.daily.filter((o) => o.status === "pending").length;
-  const pendingWeekly = orders.weekly.filter((o) => o.status === "pending").length;
-  const pendingMonthly = orders.monthly.filter((o) => o.status === "pending").length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -248,13 +292,13 @@ const Admin = () => {
         <Tabs defaultValue="daily" className="space-y-6">
           <TabsList className="bg-muted">
             <TabsTrigger value="daily" className="data-[state=active]:bg-card">
-              Daily Orders ({orders.daily.length})
+              Daily Orders ({dailyOrders.length})
             </TabsTrigger>
             <TabsTrigger value="weekly" className="data-[state=active]:bg-card">
-              Weekly Orders ({orders.weekly.length})
+              Weekly Orders ({weeklyOrders.length})
             </TabsTrigger>
             <TabsTrigger value="monthly" className="data-[state=active]:bg-card">
-              Monthly Orders ({orders.monthly.length})
+              Monthly Orders ({monthlyOrders.length})
             </TabsTrigger>
           </TabsList>
 
@@ -273,11 +317,11 @@ const Admin = () => {
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {orders.daily.map((order) => (
-                <OrderCard key={order.id} order={order} type="daily" />
+              {dailyOrders.map((order) => (
+                <OrderCard key={order.id} order={order} />
               ))}
             </div>
-            {orders.daily.length === 0 && (
+            {dailyOrders.length === 0 && (
               <p className="text-center text-muted-foreground py-8">
                 No daily orders yet.
               </p>
@@ -289,11 +333,11 @@ const Admin = () => {
               Active Weekly Subscriptions
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {orders.weekly.map((order) => (
-                <OrderCard key={order.id} order={order} type="weekly" />
+              {weeklyOrders.map((order) => (
+                <OrderCard key={order.id} order={order} />
               ))}
             </div>
-            {orders.weekly.length === 0 && (
+            {weeklyOrders.length === 0 && (
               <p className="text-center text-muted-foreground py-8">
                 No weekly orders yet.
               </p>
@@ -305,11 +349,11 @@ const Admin = () => {
               Active Monthly Subscriptions
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {orders.monthly.map((order) => (
-                <OrderCard key={order.id} order={order} type="monthly" />
+              {monthlyOrders.map((order) => (
+                <OrderCard key={order.id} order={order} />
               ))}
             </div>
-            {orders.monthly.length === 0 && (
+            {monthlyOrders.length === 0 && (
               <p className="text-center text-muted-foreground py-8">
                 No monthly orders yet.
               </p>
