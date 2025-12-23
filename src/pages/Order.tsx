@@ -2,7 +2,10 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth.tsx";
 import { supabase } from "@/integrations/supabase/client";
+import { Database } from "@/integrations/supabase/types";
 import { createLocalRazorpayOrder, verifyLocalRazorpayPayment, shouldUseLocalIntegration } from "@/lib/razorpay-local";
+import { getTodayMenu } from "@/lib/pricing";
+import { isOrderingAllowed, getTimeUntilCutoff } from "@/lib/timeUtils";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -12,7 +15,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { Check, Phone, CreditCard, Wallet, Loader2 } from "lucide-react";
+import { Check, Phone, CreditCard, Wallet, Loader2, UtensilsCrossed, Clock, AlertCircle, Calendar } from "lucide-react";
 
 declare global {
   interface Window {
@@ -20,11 +23,14 @@ declare global {
   }
 }
 
-const mealPlans = [
-  { id: "daily", name: "Daily Meal", price: 149, postpaidPrice: 179, days: 1, planType: "daily" as const },
-  { id: "weekly", name: "Weekly Plan", price: 899, postpaidPrice: 1079, days: 7, planType: "weekly" as const },
-  { id: "monthly", name: "Monthly Plan", price: 3839, postpaidPrice: 4599, days: 30, planType: "monthly" as const },
-];
+interface PricingPlan {
+  id: string;
+  name: string;
+  days: number;
+  original_price: number;
+  current_price: number;
+  plan_type: string;
+}
 
 const Order = () => {
   const { user, loading } = useAuth();
@@ -32,6 +38,7 @@ const Order = () => {
   const [searchParams] = useSearchParams();
   const initialPlan = searchParams.get("plan") || "daily";
 
+  const [mealPlans, setMealPlans] = useState<PricingPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState(initialPlan);
   const [paymentType, setPaymentType] = useState<"prepaid" | "postpaid">("prepaid");
   const [formData, setFormData] = useState({
@@ -42,13 +49,68 @@ const Order = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
+  const [todayMenu, setTodayMenu] = useState<string[]>([]);
+  const [canOrder, setCanOrder] = useState(true);
+  const [timeMessage, setTimeMessage] = useState("");
+  const [plansLoading, setPlansLoading] = useState(true);
 
-  const currentPlan = mealPlans.find((p) => p.id === selectedPlan) || mealPlans[0];
-  const totalPrice = paymentType === "prepaid" ? currentPlan.price : currentPlan.postpaidPrice;
-  const advancePayment = paymentType === "postpaid" ? Math.round(totalPrice * 0.5) : totalPrice;
-  const payableAmount = paymentType === "postpaid" ? advancePayment : totalPrice;
+  // Fetch pricing plans from database
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        // Use a direct query since pricing_plans table exists
+        const { data, error } = await supabase
+          .from('pricing_plans')
+          .select('id, name, days, original_price, current_price, plan_type')
+          .eq('is_active', true)
+          .order('days', { ascending: true });
 
-  // Load Razorpay script
+        if (error) {
+          console.error('Error fetching pricing plans:', error);
+          return;
+        }
+
+        setMealPlans(data || []);
+      } catch (error) {
+        console.error('Error fetching pricing plans:', error);
+      } finally {
+        setPlansLoading(false);
+      }
+    };
+
+    fetchPlans();
+  }, []);
+
+  const currentPlan = mealPlans.find((p) => p.plan_type === selectedPlan) || mealPlans[0];
+
+  // Weekly and monthly plans are only prepaid
+  const isMultiDayPlan = currentPlan?.plan_type === 'weekly' || currentPlan?.plan_type === 'monthly';
+  const effectivePaymentType = isMultiDayPlan ? 'prepaid' : paymentType;
+
+  const totalPrice = effectivePaymentType === "prepaid" ? currentPlan?.current_price || 0 : Math.round((currentPlan?.current_price || 0) * 1.2); // 20% markup for postpaid
+  const advancePayment = effectivePaymentType === "postpaid" ? Math.round(totalPrice * 0.5) : totalPrice;
+  const payableAmount = effectivePaymentType === "postpaid" ? advancePayment : totalPrice;
+
+  // Calculate plan dates
+  const getStartDate = () => {
+    const today = new Date();
+    if (isMultiDayPlan) {
+      // Multi-day plans start from next day
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      return tomorrow;
+    }
+    return today; // Daily plans start today
+  };
+
+  const getEndDate = () => {
+    const startDate = getStartDate();
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + (currentPlan?.days || 1) - 1);
+    return endDate;
+  };
+
+  // Load Razorpay script and today's menu
   useEffect(() => {
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
@@ -56,12 +118,52 @@ const Order = () => {
     script.onload = () => setRazorpayLoaded(true);
     document.body.appendChild(script);
 
+    // Load today's menu and check ordering time
+    const loadTodayMenu = async () => {
+      const menu = await getTodayMenu();
+      setTodayMenu(menu);
+    };
+    loadTodayMenu();
+
+    // Check ordering time restrictions
+    const checkOrderingTime = () => {
+      // Multi-day plans (weekly/monthly) don't have time restrictions
+      if (isMultiDayPlan) {
+        setCanOrder(true);
+        setTimeMessage("Multi-day plans can be ordered anytime and start from tomorrow");
+        return;
+      }
+
+      // Daily plans have 5 PM cutoff
+      const allowed = isOrderingAllowed();
+      setCanOrder(allowed);
+
+      if (allowed) {
+        setTimeMessage(getTimeUntilCutoff());
+      } else {
+        setTimeMessage(`Ordering closed for today. Order next day before 5:00 PM`);
+      }
+    };
+
+    checkOrderingTime();
+
+    // Update time message every minute
+    const timeInterval = setInterval(checkOrderingTime, 60000);
+
     const cleanup = () => {
       document.body.removeChild(script);
+      clearInterval(timeInterval);
     };
 
     return cleanup;
   }, []);
+
+  // Update payment type when plan changes
+  useEffect(() => {
+    if (isMultiDayPlan) {
+      setPaymentType('prepaid');
+    }
+  }, [selectedPlan, isMultiDayPlan]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -86,6 +188,16 @@ const Order = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check if ordering is allowed (only for daily plans)
+    if (!isMultiDayPlan && !canOrder) {
+      toast({
+        title: "Ordering Closed",
+        description: "Daily orders can only be placed before 5:00 PM. Please try again tomorrow.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (!formData.name || !formData.phone || !formData.address) {
       toast({
@@ -122,7 +234,7 @@ const Order = () => {
         customer_name: formData.name,
         phone: formData.phone,
         address: formData.address,
-        plan_type: currentPlan.planType,
+        plan_type: currentPlan?.plan_type,
         payment_type: paymentType,
         total_amount: totalPrice,
       });
@@ -135,8 +247,8 @@ const Order = () => {
           customer_name: formData.name,
           phone: formData.phone,
           address: formData.address,
-          plan_type: currentPlan.planType,
-          payment_type: paymentType,
+          plan_type: (currentPlan?.plan_type || 'daily') as Database["public"]["Enums"]["plan_type"],
+          payment_type: effectivePaymentType,
           total_amount: totalPrice,
         })
         .select()
@@ -149,7 +261,7 @@ const Order = () => {
 
       // Create Razorpay order with real keys
       const useLocal = shouldUseLocalIntegration();
-      let razorpayData;
+      let razorpayData: any;
 
       if (useLocal) {
         // Use local Razorpay integration with real keys
@@ -165,7 +277,7 @@ const Order = () => {
               receipt: `order_${orderData.id}`,
               notes: {
                 order_id: orderData.id,
-                plan: currentPlan.name,
+                plan: currentPlan?.name || 'Meal Plan',
                 customer_name: formData.name,
               },
             },
@@ -184,8 +296,8 @@ const Order = () => {
         key: razorpayData.keyId,
         amount: razorpayData.amount,
         currency: razorpayData.currency,
-        name: "Express Home Meals",
-        description: `${currentPlan.name} - ${paymentType === "postpaid" ? "Advance Payment" : "Full Payment"}`,
+        name: "Mamma's Food",
+        description: `${currentPlan?.name || 'Meal Plan'} - ${effectivePaymentType === "postpaid" ? "Advance Payment" : "Full Payment"}`,
         // Note: order_id is optional for simple payments
         handler: async (response: any) => {
           try {
@@ -277,7 +389,7 @@ const Order = () => {
     }
   };
 
-  if (loading) {
+  if (loading || plansLoading) {
     return <div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   }
 
@@ -295,24 +407,24 @@ const Order = () => {
             </h1>
             <p className="text-muted-foreground mb-6">
               Thank you for your order, {formData.name}! We've received your payment for the{" "}
-              <strong>{currentPlan.name}</strong>.
+              <strong>{currentPlan?.name || 'Meal Plan'}</strong>.
             </p>
             <Card className="bg-card border-border mb-6">
               <CardContent className="pt-6">
                 <div className="space-y-3 text-left">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Plan:</span>
-                    <span className="font-medium text-foreground">{currentPlan.name}</span>
+                    <span className="font-medium text-foreground">{currentPlan?.name || 'Meal Plan'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Payment Type:</span>
-                    <span className="font-medium text-foreground capitalize">{paymentType}</span>
+                    <span className="font-medium text-foreground capitalize">{effectivePaymentType}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Amount Paid:</span>
                     <span className="font-bold text-primary">₹{payableAmount}</span>
                   </div>
-                  {paymentType === "postpaid" && (
+                  {effectivePaymentType === "postpaid" && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Balance Due:</span>
                       <span className="font-medium text-foreground">₹{totalPrice - advancePayment}</span>
@@ -372,6 +484,81 @@ const Order = () => {
       )}
 
       <main className="container mx-auto px-4 py-12">
+        {/* Time Restriction Notice - Only show for daily plans */}
+        {!isMultiDayPlan && (
+          <div className="max-w-4xl mx-auto mb-6">
+            <Card className={`border-2 ${canOrder ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-3">
+                  {canOrder ? (
+                    <Clock className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-red-600" />
+                  )}
+                  <div>
+                    <p className={`font-medium ${canOrder ? 'text-green-800' : 'text-red-800'}`}>
+                      {canOrder ? 'Ordering Open' : 'Ordering Closed'}
+                    </p>
+                    <p className={`text-sm ${canOrder ? 'text-green-700' : 'text-red-700'}`}>
+                      {timeMessage}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Plan Duration Notice - Show for multi-day plans */}
+        {isMultiDayPlan && (
+          <div className="max-w-4xl mx-auto mb-6">
+            <Card className="border-2 border-blue-200 bg-blue-50">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-3">
+                  <Calendar className="w-5 h-5 text-blue-600" />
+                  <div>
+                    <p className="font-medium text-blue-800">
+                      Plan Duration: {getStartDate().toLocaleDateString()} - {getEndDate().toLocaleDateString()}
+                    </p>
+                    <p className="text-sm text-blue-700">
+                      Your {currentPlan?.name} will start from tomorrow and run for {currentPlan?.days} days
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Today's Menu Section */}
+        {todayMenu.length > 0 && (
+          <div className="max-w-4xl mx-auto mb-8">
+            <Card className="bg-gradient-to-r from-primary/5 to-secondary/5 border-primary/20">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-center justify-center">
+                  <UtensilsCrossed className="w-6 h-6 text-primary" />
+                  Today's Menu - {new Date().toLocaleDateString('en-US', { weekday: 'long' })}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {todayMenu.map((item, index) => (
+                    <div
+                      key={index}
+                      className="bg-background/80 rounded-lg p-3 text-center border border-border/50"
+                    >
+                      <span className="text-sm font-medium text-foreground">{item}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-center text-sm text-muted-foreground mt-4">
+                  Fresh meals prepared daily with these delicious items!
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-10">
             <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
@@ -399,18 +586,18 @@ const Order = () => {
                     {mealPlans.map((plan) => (
                       <Label
                         key={plan.id}
-                        htmlFor={plan.id}
-                        className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedPlan === plan.id
+                        htmlFor={plan.plan_type}
+                        className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedPlan === plan.plan_type
                           ? "border-primary bg-primary/5"
                           : "border-border hover:border-primary/50"
                           }`}
                       >
-                        <RadioGroupItem value={plan.id} id={plan.id} />
+                        <RadioGroupItem value={plan.plan_type} id={plan.plan_type} />
                         <div className="flex-1">
                           <p className="font-semibold text-foreground">{plan.name}</p>
                           <p className="text-sm text-muted-foreground">{plan.days} {plan.days === 1 ? "day" : "days"}</p>
                         </div>
-                        <p className="font-bold text-primary">₹{plan.price}</p>
+                        <p className="font-bold text-primary">₹{plan.current_price}</p>
                       </Label>
                     ))}
                   </RadioGroup>
@@ -424,13 +611,13 @@ const Order = () => {
                 </CardHeader>
                 <CardContent>
                   <RadioGroup
-                    value={paymentType}
-                    onValueChange={(value) => setPaymentType(value as "prepaid" | "postpaid")}
+                    value={effectivePaymentType}
+                    onValueChange={(value) => !isMultiDayPlan && setPaymentType(value as "prepaid" | "postpaid")}
                     className="grid grid-cols-1 sm:grid-cols-2 gap-4"
                   >
                     <Label
                       htmlFor="prepaid"
-                      className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentType === "prepaid"
+                      className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${effectivePaymentType === "prepaid"
                         ? "border-primary bg-primary/5"
                         : "border-border hover:border-primary/50"
                         }`}
@@ -444,22 +631,37 @@ const Order = () => {
                     </Label>
                     <Label
                       htmlFor="postpaid"
-                      className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentType === "postpaid"
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/50"
+                      className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${isMultiDayPlan
+                        ? "cursor-not-allowed opacity-50 border-gray-200 bg-gray-50"
+                        : effectivePaymentType === "postpaid"
+                          ? "border-primary bg-primary/5 cursor-pointer"
+                          : "border-border hover:border-primary/50 cursor-pointer"
                         }`}
                     >
-                      <RadioGroupItem value="postpaid" id="postpaid" />
-                      <Wallet className="w-5 h-5 text-secondary" />
+                      <RadioGroupItem
+                        value="postpaid"
+                        id="postpaid"
+                        disabled={isMultiDayPlan}
+                      />
+                      <Wallet className={`w-5 h-5 ${isMultiDayPlan ? 'text-gray-400' : 'text-secondary'}`} />
                       <div className="flex-1">
-                        <p className="font-semibold text-foreground">Postpaid</p>
-                        <p className="text-sm text-muted-foreground">50% now, rest on delivery</p>
+                        <p className={`font-semibold ${isMultiDayPlan ? 'text-gray-400' : 'text-foreground'}`}>
+                          Postpaid
+                        </p>
+                        <p className={`text-sm ${isMultiDayPlan ? 'text-gray-400' : 'text-muted-foreground'}`}>
+                          {isMultiDayPlan ? 'Not available for multi-day plans' : '50% now, rest on delivery'}
+                        </p>
                       </div>
                     </Label>
                   </RadioGroup>
-                  {paymentType === "postpaid" && (
+                  {effectivePaymentType === "postpaid" && !isMultiDayPlan && (
                     <p className="text-sm text-muted-foreground mt-4 bg-muted p-3 rounded-lg">
-                      Note: Postpaid orders are priced at ₹179/meal instead of ₹149/meal.
+                      Note: Postpaid orders have a 20% markup for convenience.
+                    </p>
+                  )}
+                  {isMultiDayPlan && (
+                    <p className="text-sm text-blue-600 mt-4 bg-blue-50 p-3 rounded-lg">
+                      Multi-day plans require full prepayment for better meal planning and delivery scheduling.
                     </p>
                   )}
                 </CardContent>
@@ -529,24 +731,24 @@ const Order = () => {
                   <CardContent className="space-y-4">
                     <div className="flex justify-between text-muted-foreground">
                       <span>Plan:</span>
-                      <span className="text-foreground font-medium">{currentPlan.name}</span>
+                      <span className="text-foreground font-medium">{currentPlan?.name || 'Meal Plan'}</span>
                     </div>
                     <div className="flex justify-between text-muted-foreground">
                       <span>Duration:</span>
                       <span className="text-foreground font-medium">
-                        {currentPlan.days} {currentPlan.days === 1 ? "day" : "days"}
+                        {currentPlan?.days || 1} {(currentPlan?.days || 1) === 1 ? "day" : "days"}
                       </span>
                     </div>
                     <div className="flex justify-between text-muted-foreground">
                       <span>Payment:</span>
-                      <span className="text-foreground font-medium capitalize">{paymentType}</span>
+                      <span className="text-foreground font-medium capitalize">{effectivePaymentType}</span>
                     </div>
                     <div className="border-t border-border pt-4">
                       <div className="flex justify-between">
                         <span className="text-foreground font-semibold">Total Amount:</span>
                         <span className="text-xl font-bold text-primary">₹{totalPrice}</span>
                       </div>
-                      {paymentType === "postpaid" && (
+                      {effectivePaymentType === "postpaid" && (
                         <>
                           <div className="flex justify-between mt-2 text-sm">
                             <span className="text-muted-foreground">Pay Now (50%):</span>
@@ -565,9 +767,11 @@ const Order = () => {
                       variant="hero"
                       size="lg"
                       className="w-full"
-                      disabled={isSubmitting || !razorpayLoaded}
+                      disabled={isSubmitting || !razorpayLoaded || (!isMultiDayPlan && !canOrder)}
                     >
-                      {isSubmitting ? (
+                      {(!isMultiDayPlan && !canOrder) ? (
+                        "Ordering Closed"
+                      ) : isSubmitting ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                           Processing...

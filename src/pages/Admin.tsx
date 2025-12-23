@@ -5,9 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { toast } from "@/hooks/use-toast";
-import { Package, Calendar, CalendarDays, Check, X, Loader2, UtensilsCrossed, Plus, Trash2, Save, Lock } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "@/hooks/use-toast";
+import { Package, Check, X, Loader2, Plus, Trash2, Save, Lock, DollarSign, Tag, Percent } from "lucide-react";
+import { getPricingPlans, getActiveOffers, updatePricingPlan, upsertOffer, PricingPlan, Offer } from "@/lib/pricing";
 
 // (Keep the interfaces and constants from the original file)
 interface Order {
@@ -40,21 +43,37 @@ const dayOrder = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satur
 const AdminDashboard = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [meals, setMeals] = useState<DailyMeal[]>([]);
+  const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>([]);
+  const [offers, setOffers] = useState<Offer[]>([]);
   const [editingMeals, setEditingMeals] = useState<Record<string, string[]>>({});
   const [savingMeals, setSavingMeals] = useState<Record<string, boolean>>({});
+  const [newOffer, setNewOffer] = useState<Partial<Offer>>({
+    name: '',
+    description: '',
+    discount_percentage: 0,
+    discount_amount: 0,
+    is_active: true,
+    start_date: new Date().toISOString().split('T')[0],
+    end_date: '',
+    applicable_plans: []
+  });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
-      await fetchOrders();
-      await fetchMeals();
+      await Promise.all([
+        fetchOrders(),
+        fetchMeals(),
+        fetchPricingPlans(),
+        fetchOffers()
+      ]);
       setIsLoading(false);
     };
     loadData();
   }, []);
 
   const fetchOrders = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("orders")
       .select("*")
       .order("created_at", { ascending: false });
@@ -62,13 +81,23 @@ const AdminDashboard = () => {
   };
 
   const fetchMeals = async () => {
-    const { data, error } = await supabase.from("daily_meals").select("*");
+    const { data } = await supabase.from("daily_meals").select("*");
     if (data) {
       const sorted = data.sort((a, b) => dayOrder.indexOf(a.day_of_week) - dayOrder.indexOf(b.day_of_week));
       setMeals(sorted as DailyMeal[]);
       const initialEditing = sorted.reduce((acc, meal) => ({ ...acc, [meal.id]: [...meal.items] }), {});
       setEditingMeals(initialEditing);
     }
+  };
+
+  const fetchPricingPlans = async () => {
+    const plans = await getPricingPlans();
+    setPricingPlans(plans);
+  };
+
+  const fetchOffers = async () => {
+    const activeOffers = await getActiveOffers();
+    setOffers(activeOffers);
   };
 
   const updateOrderStatus = async (orderId: string, newStatus: "pending" | "delivered") => {
@@ -106,6 +135,41 @@ const AdminDashboard = () => {
     toast({ title: "Menu Updated", description: "Meal items saved successfully." });
   };
 
+  const updatePlanPrice = async (planId: string, newPrice: number) => {
+    try {
+      await updatePricingPlan(planId, { current_price: newPrice });
+      await fetchPricingPlans();
+      toast({ title: "Price Updated", description: "Plan price updated successfully." });
+    } catch (error: any) {
+      toast({ title: "Update Failed", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const saveOffer = async () => {
+    try {
+      if (!newOffer.name || !newOffer.end_date) {
+        toast({ title: "Missing Information", description: "Please fill in offer name and end date.", variant: "destructive" });
+        return;
+      }
+
+      await upsertOffer(newOffer);
+      await fetchOffers();
+      setNewOffer({
+        name: '',
+        description: '',
+        discount_percentage: 0,
+        discount_amount: 0,
+        is_active: true,
+        start_date: new Date().toISOString().split('T')[0],
+        end_date: '',
+        applicable_plans: []
+      });
+      toast({ title: "Offer Saved", description: "Offer created successfully." });
+    } catch (error: any) {
+      toast({ title: "Save Failed", description: error.message, variant: "destructive" });
+    }
+  };
+
   if (isLoading) {
     return <div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   }
@@ -113,9 +177,6 @@ const AdminDashboard = () => {
   const dailyOrders = orders.filter(o => o.plan_type === "daily");
   const weeklyOrders = orders.filter(o => o.plan_type === "weekly" || o.plan_type === "fifteen_day");
   const monthlyOrders = orders.filter(o => o.plan_type === "monthly");
-  const pendingDaily = dailyOrders.filter(o => o.status === "pending").length;
-  const pendingWeekly = weeklyOrders.filter(o => o.status === "pending").length;
-  const pendingMonthly = monthlyOrders.filter(o => o.status === "pending").length;
 
   const OrderCard = ({ order }: { order: Order }) => (
     <Card className="bg-card border-border">
@@ -163,7 +224,7 @@ const AdminDashboard = () => {
               </div>
               <div>
                 <h1 className="font-display font-bold text-foreground">Admin Dashboard</h1>
-                <p className="text-xs text-muted-foreground">Express Home Meals Order Management</p>
+                <p className="text-xs text-muted-foreground">Mamma's Food Order Management</p>
               </div>
             </div>
           </div>
@@ -177,6 +238,8 @@ const AdminDashboard = () => {
           <TabsList className="bg-muted">
             <TabsTrigger value="orders">Orders</TabsTrigger>
             <TabsTrigger value="menu">Edit Menu</TabsTrigger>
+            <TabsTrigger value="pricing">Pricing</TabsTrigger>
+            <TabsTrigger value="offers">Offers</TabsTrigger>
           </TabsList>
           <TabsContent value="orders" className="space-y-6">
             <Tabs defaultValue="daily" className="space-y-6">
@@ -219,6 +282,178 @@ const AdminDashboard = () => {
                       <Button size="sm" variant="hero" onClick={() => saveMeal(meal.id)} disabled={savingMeals[meal.id]}>
                         {savingMeals[meal.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4 mr-1" /> Save</>}
                       </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+          {/* Pricing Management Tab */}
+          <TabsContent value="pricing" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {pricingPlans.map(plan => (
+                <Card key={plan.id} className="bg-card border-border">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <DollarSign className="w-5 h-5 text-primary" />
+                      {plan.name}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Original Price</Label>
+                      <div className="text-lg font-semibold text-muted-foreground line-through">
+                        ₹{plan.original_price}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Current Price</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          value={plan.current_price}
+                          onChange={(e) => {
+                            const newPrice = parseFloat(e.target.value);
+                            if (!isNaN(newPrice)) {
+                              updatePlanPrice(plan.id, newPrice);
+                            }
+                          }}
+                          className="w-24"
+                        />
+                        <span className="text-sm text-muted-foreground">₹</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t">
+                      <div className="text-sm text-muted-foreground">
+                        Duration: {plan.days} {plan.days === 1 ? 'day' : 'days'}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Type: {plan.plan_type}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+          {/* Offers Management Tab */}
+          <TabsContent value="offers" className="space-y-6">
+            {/* Create New Offer */}
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Tag className="w-5 h-5 text-primary" />
+                  Create New Offer
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Offer Name</Label>
+                    <Input
+                      value={newOffer.name}
+                      onChange={(e) => setNewOffer({ ...newOffer, name: e.target.value })}
+                      placeholder="e.g., New Year Special"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>End Date</Label>
+                    <Input
+                      type="date"
+                      value={newOffer.end_date}
+                      onChange={(e) => setNewOffer({ ...newOffer, end_date: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Description</Label>
+                  <Textarea
+                    value={newOffer.description}
+                    onChange={(e) => setNewOffer({ ...newOffer, description: e.target.value })}
+                    placeholder="Describe your offer..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Discount Percentage (%)</Label>
+                    <Input
+                      type="number"
+                      value={newOffer.discount_percentage}
+                      onChange={(e) => setNewOffer({ ...newOffer, discount_percentage: parseFloat(e.target.value) || 0 })}
+                      placeholder="0"
+                      min="0"
+                      max="100"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Discount Amount (₹)</Label>
+                    <Input
+                      type="number"
+                      value={newOffer.discount_amount}
+                      onChange={(e) => setNewOffer({ ...newOffer, discount_amount: parseFloat(e.target.value) || 0 })}
+                      placeholder="0"
+                      min="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={newOffer.is_active}
+                    onCheckedChange={(checked) => setNewOffer({ ...newOffer, is_active: checked })}
+                  />
+                  <Label>Active Offer</Label>
+                </div>
+
+                <Button onClick={saveOffer} className="w-full">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Offer
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Active Offers */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {offers.map(offer => (
+                <Card key={offer.id} className="bg-card border-border">
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <Percent className="w-5 h-5 text-secondary" />
+                        {offer.name}
+                      </span>
+                      <Badge variant={offer.is_active ? "default" : "secondary"}>
+                        {offer.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-sm text-muted-foreground">{offer.description}</p>
+
+                    <div className="space-y-2">
+                      {offer.discount_percentage > 0 && (
+                        <div className="text-lg font-semibold text-secondary">
+                          {offer.discount_percentage}% OFF
+                        </div>
+                      )}
+                      {offer.discount_amount > 0 && (
+                        <div className="text-lg font-semibold text-secondary">
+                          ₹{offer.discount_amount} OFF
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="text-xs text-muted-foreground">
+                      <div>Valid until: {new Date(offer.end_date).toLocaleDateString()}</div>
+                      <div>Applicable: {offer.applicable_plans.join(', ')}</div>
                     </div>
                   </CardContent>
                 </Card>

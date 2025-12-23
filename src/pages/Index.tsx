@@ -2,50 +2,11 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import MealPlanCard from "@/components/MealPlanCard";
+import DynamicMealPlans from "@/components/DynamicMealPlans";
 import DailyMenu from "@/components/DailyMenu";
+import OfferBanner from "@/components/OfferBanner";
 import heroImage from "@/assets/hero-meals.jpg";
 import { ArrowRight, Clock, Leaf, Heart, Truck } from "lucide-react";
-
-const mealPlans = [
-  {
-    name: "Daily Meal",
-    originalPrice: 179,
-    discountedPrice: 149,
-    days: 1,
-    features: [
-      "Fresh homemade meal",
-      "Dal, Rice, Sabzi, Roti",
-      "Free delivery",
-      "Order by 4:00 PM",
-    ],
-  },
-  {
-    name: "Weekly Plan",
-    originalPrice: 1199,
-    discountedPrice: 899,
-    days: 7,
-    features: [
-      "7 days of meals",
-      "Variety menu daily",
-      "Priority delivery",
-      "Save ₹300",
-    ],
-    isPopular: true,
-  },
-  {
-    name: "Monthly Plan",
-    originalPrice: 4199,
-    discountedPrice: 3839,
-    days: 30,
-    features: [
-      "Full month coverage",
-      "Maximum savings",
-      "VIP delivery",
-      "Save ₹360",
-    ],
-  },
-];
 
 const features = [
   {
@@ -73,6 +34,7 @@ const features = [
 const Index = () => {
   return (
     <div className="min-h-screen bg-background">
+      <OfferBanner />
       <Header />
 
       {/* Hero Section */}
@@ -83,10 +45,10 @@ const Index = () => {
             <div className="relative z-10 space-y-6 animate-fade-in">
               <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium">
                 <Clock className="w-4 h-4" />
-                Order before 4:00 PM for same-day delivery
+                Order before 5:00 PM for same-day delivery
               </span>
               <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight">
-                Delicious Daily Meals{" "}
+                Delicious Daily Dinner{" "}
                 <span className="text-gradient">Delivered Fresh</span>
               </h1>
               <p className="text-lg text-muted-foreground max-w-lg">
@@ -170,40 +132,7 @@ const Index = () => {
       </section>
 
       {/* Meal Plans Section */}
-      <section className="py-16">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <span className="inline-block px-4 py-2 rounded-full bg-accent/20 text-accent-foreground text-sm font-medium mb-4">
-              Affordable Pricing
-            </span>
-            <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Choose Your Meal Plan
-            </h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              Select the plan that fits your lifestyle. All plans include fresh, homemade meals
-              with free delivery.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-            {mealPlans.map((plan, index) => (
-              <div
-                key={plan.name}
-                className="animate-slide-up"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <MealPlanCard {...plan} />
-              </div>
-            ))}
-          </div>
-
-          <div className="text-center mt-8">
-            <p className="text-muted-foreground">
-              <span className="text-primary font-semibold">Postpaid Option:</span> Pay 50% advance, remaining on delivery (₹179/meal)
-            </p>
-          </div>
-        </div>
-      </section>
+      <DynamicMealPlans />
 
       {/* Daily Menu Section */}
       <DailyMenu />

@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth.tsx";
 import { Button } from "@/components/ui/button";
-import { Menu, X, UtensilsCrossed } from "lucide-react";
+import { Menu, X } from "lucide-react";
+import logoImage from "@/assets/Yellow_and_Brown_Kitchen_Food_Logo-removebg-preview.png";
 
 const Header = () => {
   const { session, signOut } = useAuth();
@@ -24,12 +25,16 @@ const Header = () => {
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-10 h-10 rounded-full gradient-warm flex items-center justify-center shadow-warm group-hover:scale-105 transition-transform">
-              <UtensilsCrossed className="w-5 h-5 text-primary-foreground" />
+          <Link to="/" className="flex items-center gap-3 group">
+            <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center shadow-warm group-hover:scale-105 transition-transform">
+              <img
+                src={logoImage}
+                alt="Mamma's Food Logo"
+                className="w-12 h-12 object-contain"
+              />
             </div>
-            <span className="font-display text-xl font-bold text-foreground">
-              Express Home Meals
+            <span className="font-display text-2xl font-bold text-foreground">
+              Mamma's Food
             </span>
           </Link>
 
@@ -40,8 +45,8 @@ const Header = () => {
                 key={link.path}
                 to={link.path}
                 className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 ${isActive(link.path)
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
               >
                 {link.name}
@@ -91,8 +96,8 @@ const Header = () => {
                   to={link.path}
                   onClick={() => setIsMenuOpen(false)}
                   className={`px-4 py-3 rounded-lg font-medium transition-all ${isActive(link.path)
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
                     }`}
                 >
                   {link.name}

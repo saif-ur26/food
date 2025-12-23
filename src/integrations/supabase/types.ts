@@ -27,6 +27,48 @@ export interface Database {
         }
         Relationships: []
       }
+      offers: {
+        Row: {
+          applicable_plans: string[]
+          created_at: string
+          description: string | null
+          discount_amount: number
+          discount_percentage: number
+          end_date: string | null
+          id: string
+          is_active: boolean
+          name: string
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          applicable_plans?: string[]
+          created_at?: string
+          description?: string | null
+          discount_amount?: number
+          discount_percentage?: number
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          start_date?: string
+          updated_at?: string
+        }
+        Update: {
+          applicable_plans?: string[]
+          created_at?: string
+          description?: string | null
+          discount_amount?: number
+          discount_percentage?: number
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           address: string
@@ -76,6 +118,42 @@ export interface Database {
           }
         ]
       }
+      pricing_plans: {
+        Row: {
+          created_at: string
+          current_price: number
+          days: number
+          id: string
+          is_active: boolean
+          name: string
+          original_price: number
+          plan_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_price: number
+          days: number
+          id?: string
+          is_active?: boolean
+          name: string
+          original_price: number
+          plan_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_price?: number
+          days?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          original_price?: number
+          plan_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -122,7 +200,7 @@ export interface Database {
       app_role: "admin" | "user"
       order_status: "pending" | "delivered" | "cancelled"
       payment_type: "prepaid" | "postpaid"
-      plan_type: "daily" | "weekly" | "fifteen_day" | "monthly"
+      plan_type: "daily" | "weekly" | "monthly"
     }
     CompositeTypes: {
       [_ in never]: never
