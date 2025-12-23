@@ -41,8 +41,8 @@ Daily Dish Delights is a comprehensive meal delivery platform that offers:
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/YOUR_NEW_USERNAME/daily-dish-delights.git
-cd daily-dish-delights
+git clone https://github.com/saif-ur26/food.git
+cd food
 ```
 
 2. Install dependencies:

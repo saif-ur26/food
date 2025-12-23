@@ -12,8 +12,8 @@ This guide will help you set up the Daily Dish Delights application with all nec
 ## Step 1: Clone and Install
 
 ```bash
-git clone https://github.com/YOUR_NEW_USERNAME/daily-dish-delights.git
-cd daily-dish-delights
+git clone https://github.com/saif-ur26/food.git
+cd food
 npm install
 ```
 
