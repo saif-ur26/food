@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth.tsx";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -21,11 +22,12 @@ declare global {
 const mealPlans = [
   { id: "daily", name: "Daily Meal", price: 149, postpaidPrice: 179, days: 1, planType: "daily" as const },
   { id: "weekly", name: "Weekly Plan", price: 899, postpaidPrice: 1079, days: 7, planType: "weekly" as const },
-  { id: "fifteen_day", name: "15-Day Plan", price: 1919, postpaidPrice: 2299, days: 15, planType: "fifteen_day" as const },
   { id: "monthly", name: "Monthly Plan", price: 3839, postpaidPrice: 4599, days: 30, planType: "monthly" as const },
 ];
 
 const Order = () => {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialPlan = searchParams.get("plan") || "daily";
 
@@ -53,10 +55,26 @@ const Order = () => {
     script.onload = () => setRazorpayLoaded(true);
     document.body.appendChild(script);
 
-    return () => {
+    const cleanup = () => {
       document.body.removeChild(script);
     };
+
+    return cleanup;
   }, []);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/auth");
+      toast({ title: "Login Required", description: "Please login to place an order.", variant: "destructive" });
+    }
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        name: user.user_metadata.full_name || prev.name,
+        phone: user.phone || prev.phone,
+      }));
+    }
+  }, [user, loading, navigate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({
@@ -102,9 +120,7 @@ const Order = () => {
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
         .insert({
-          customer_name: formData.name,
-          phone: formData.phone,
-          address: formData.address,
+          user_id: user?.id,
           plan_type: currentPlan.planType,
           payment_type: paymentType,
           total_amount: totalPrice,
@@ -194,7 +210,7 @@ const Order = () => {
       const razorpay = new window.Razorpay(options);
       razorpay.open();
     } catch (error: any) {
-      console.error("Order error:", error);
+      console.error("Order error:", error.message || error);
       toast({
         title: "Order Failed",
         description: error.message || "Something went wrong. Please try again.",
@@ -203,6 +219,10 @@ const Order = () => {
       setIsSubmitting(false);
     }
   };
+
+  if (loading) {
+    return <div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+  }
 
   if (orderPlaced) {
     return (

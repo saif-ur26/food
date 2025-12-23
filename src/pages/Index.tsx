@@ -34,18 +34,6 @@ const mealPlans = [
     isPopular: true,
   },
   {
-    name: "15-Day Plan",
-    originalPrice: 2399,
-    discountedPrice: 1919,
-    days: 15,
-    features: [
-      "15 days of meals",
-      "Best variety",
-      "Priority delivery",
-      "Save ₹480",
-    ],
-  },
-  {
     name: "Monthly Plan",
     originalPrice: 4199,
     discountedPrice: 3839,

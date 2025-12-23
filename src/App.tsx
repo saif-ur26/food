@@ -10,6 +10,8 @@ import Contact from "./pages/Contact";
 import Admin from "./pages/Admin";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import OrderStatus from "./pages/OrderStatus";
+import { AuthProvider } from "./hooks/useAuth.tsx";
 
 const queryClient = new QueryClient();
 
@@ -18,7 +20,8 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <AuthProvider>
+        <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/order" element={<Order />} />
@@ -26,10 +29,12 @@ const App = () => (
           <Route path="/contact" element={<Contact />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/order-status" element={<OrderStatus />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

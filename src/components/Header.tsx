@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth.tsx";
 import { Button } from "@/components/ui/button";
 import { Menu, X, UtensilsCrossed } from "lucide-react";
 
 const Header = () => {
+  const { session, signOut } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
 
@@ -12,6 +14,7 @@ const Header = () => {
     { name: "Order Now", path: "/order" },
     { name: "About Us", path: "/about" },
     { name: "Contact", path: "/contact" },
+    { name: "Order Status", path: "/order-status" },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -48,7 +51,16 @@ const Header = () => {
           </nav>
 
           {/* CTA Button */}
-          <div className="hidden md:block">
+          <div className="hidden md:flex items-center gap-2">
+            {session ? (
+              <Button variant="outline" onClick={signOut}>
+                Logout
+              </Button>
+            ) : (
+              <Link to="/auth">
+                <Button variant="outline">Login / Sign Up</Button>
+              </Link>
+            )}
             <Link to="/order">
               <Button variant="hero" size="default">
                 Order Now
@@ -88,6 +100,17 @@ const Header = () => {
                   {link.name}
                 </Link>
               ))}
+              {session ? (
+                <Button variant="outline" onClick={() => { signOut(); setIsMenuOpen(false); }} className="w-full mt-2">
+                  Logout
+                </Button>
+              ) : (
+                <Link to="/auth" onClick={() => setIsMenuOpen(false)}>
+                  <Button variant="outline" className="w-full mt-2">
+                    Login / Sign Up
+                  </Button>
+                </Link>
+              )}
               <Link to="/order" onClick={() => setIsMenuOpen(false)}>
                 <Button variant="hero" className="w-full mt-2">
                   Order Now

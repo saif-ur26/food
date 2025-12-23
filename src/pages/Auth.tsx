@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth.tsx";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,25 +12,16 @@ import { Lock, Mail, User } from "lucide-react";
 
 const Auth = () => {
   const navigate = useNavigate();
+  const { session } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [loginData, setLoginData] = useState({ email: "", password: "" });
   const [signupData, setSignupData] = useState({ email: "", password: "", confirmPassword: "" });
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        navigate("/admin");
-      }
-    });
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        navigate("/admin");
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
+    if (session) {
+      navigate("/");
+    }
+  }, [session, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,7 +71,7 @@ const Auth = () => {
 
     setIsLoading(true);
 
-    const redirectUrl = `${window.location.origin}/admin`;
+    const redirectUrl = `${window.location.origin}/`;
 
     const { error } = await supabase.auth.signUp({
       email: signupData.email,
@@ -120,9 +112,9 @@ const Auth = () => {
           <div className="w-16 h-16 rounded-full gradient-warm flex items-center justify-center mx-auto mb-4">
             <Lock className="w-8 h-8 text-primary-foreground" />
           </div>
-          <CardTitle className="font-display text-2xl">Admin Portal</CardTitle>
+          <CardTitle className="font-display text-2xl">Welcome</CardTitle>
           <p className="text-muted-foreground text-sm mt-2">
-            Login or create an account to manage orders
+            Login or create an account to place and track your orders
           </p>
         </CardHeader>
         <CardContent>
