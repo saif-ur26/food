@@ -125,6 +125,22 @@ const Order = () => {
     };
     loadTodayMenu();
 
+    // Set up real-time subscription for menu updates
+    const menuSubscription = supabase
+      .channel('daily_meals_order_page')
+      .on('postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'daily_meals'
+        },
+        (payload) => {
+          console.log('Menu updated on order page:', payload);
+          loadTodayMenu(); // Refetch menu when changes occur
+        }
+      )
+      .subscribe();
+
     // Check ordering time restrictions
     const checkOrderingTime = () => {
       // Multi-day plans (weekly/monthly) don't have time restrictions
@@ -153,10 +169,11 @@ const Order = () => {
     const cleanup = () => {
       document.body.removeChild(script);
       clearInterval(timeInterval);
+      menuSubscription.unsubscribe();
     };
 
     return cleanup;
-  }, []);
+  }, [isMultiDayPlan]);
 
   // Update payment type when plan changes
   useEffect(() => {

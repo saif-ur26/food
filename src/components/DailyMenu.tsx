@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Calendar } from "lucide-react";
+import { Calendar, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
 interface DailyMeal {
@@ -11,27 +12,62 @@ interface DailyMeal {
 const DailyMenu = () => {
   const [meals, setMeals] = useState<DailyMeal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const today = new Date().toLocaleDateString("en-US", { weekday: "long" });
 
   const dayOrder = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
   useEffect(() => {
     fetchMeals();
+
+    // Set up real-time subscription for menu updates
+    const subscription = supabase
+      .channel('daily_meals_changes')
+      .on('postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'daily_meals'
+        },
+        (payload) => {
+          console.log('Menu updated:', payload);
+          fetchMeals(); // Refetch meals when changes occur
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const fetchMeals = async () => {
+  const fetchMeals = async (showRefreshing = false) => {
+    if (showRefreshing) setIsRefreshing(true);
+
     const { data, error } = await supabase
       .from("daily_meals")
       .select("*");
 
+    if (error) {
+      console.error('Error fetching meals:', error);
+      setIsLoading(false);
+      setIsRefreshing(false);
+      return;
+    }
+
     if (data) {
       // Sort by day order
-      const sorted = data.sort((a, b) => 
+      const sorted = data.sort((a, b) =>
         dayOrder.indexOf(a.day_of_week) - dayOrder.indexOf(b.day_of_week)
       );
       setMeals(sorted as DailyMeal[]);
     }
     setIsLoading(false);
+    setIsRefreshing(false);
+  };
+
+  const handleRefresh = () => {
+    fetchMeals(true);
   };
 
   if (isLoading) {
@@ -57,20 +93,29 @@ const DailyMenu = () => {
           <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
             What's Cooking This Week?
           </h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-muted-foreground max-w-2xl mx-auto mb-4">
             Fresh, homemade meals prepared with love every day. Same delicious taste, consistent quality.
           </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="mb-4"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Refreshing...' : 'Refresh Menu'}
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
           {meals.map((menu) => (
             <div
               key={menu.id}
-              className={`rounded-xl p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-soft ${
-                menu.day_of_week === today
-                  ? "ring-2 ring-primary shadow-warm bg-card"
-                  : "bg-card border border-border"
-              }`}
+              className={`rounded-xl p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-soft ${menu.day_of_week === today
+                ? "ring-2 ring-primary shadow-warm bg-card"
+                : "bg-card border border-border"
+                }`}
             >
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-display font-semibold text-foreground">
