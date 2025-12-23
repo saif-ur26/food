@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
@@ -10,7 +10,13 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { Check, Phone, CreditCard, Wallet } from "lucide-react";
+import { Check, Phone, CreditCard, Wallet, Loader2 } from "lucide-react";
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 const mealPlans = [
   { id: "daily", name: "Daily Meal", price: 149, postpaidPrice: 179, days: 1, planType: "daily" as const },
@@ -32,10 +38,25 @@ const Order = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
+  const [razorpayLoaded, setRazorpayLoaded] = useState(false);
 
   const currentPlan = mealPlans.find((p) => p.id === selectedPlan) || mealPlans[0];
   const totalPrice = paymentType === "prepaid" ? currentPlan.price : currentPlan.postpaidPrice;
   const advancePayment = paymentType === "postpaid" ? Math.round(totalPrice * 0.5) : totalPrice;
+  const payableAmount = paymentType === "postpaid" ? advancePayment : totalPrice;
+
+  // Load Razorpay script
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => setRazorpayLoaded(true);
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({
@@ -65,34 +86,122 @@ const Order = () => {
       return;
     }
 
-    setIsSubmitting(true);
-
-    const { error } = await supabase.from("orders").insert({
-      customer_name: formData.name,
-      phone: formData.phone,
-      address: formData.address,
-      plan_type: currentPlan.planType,
-      payment_type: paymentType,
-      total_amount: totalPrice,
-    });
-
-    setIsSubmitting(false);
-
-    if (error) {
+    if (!razorpayLoaded) {
       toast({
-        title: "Order Failed",
-        description: "Something went wrong. Please try again.",
+        title: "Payment Loading",
+        description: "Please wait while payment gateway loads.",
         variant: "destructive",
       });
       return;
     }
 
-    setOrderPlaced(true);
+    setIsSubmitting(true);
 
-    toast({
-      title: "Order Placed Successfully!",
-      description: "We'll contact you shortly to confirm your order.",
-    });
+    try {
+      // First create the order in database
+      const { data: orderData, error: orderError } = await supabase
+        .from("orders")
+        .insert({
+          customer_name: formData.name,
+          phone: formData.phone,
+          address: formData.address,
+          plan_type: currentPlan.planType,
+          payment_type: paymentType,
+          total_amount: totalPrice,
+        })
+        .select()
+        .single();
+
+      if (orderError || !orderData) {
+        throw new Error("Failed to create order");
+      }
+
+      // Create Razorpay order
+      const { data: razorpayData, error: razorpayError } = await supabase.functions.invoke(
+        "create-razorpay-order",
+        {
+          body: {
+            amount: payableAmount,
+            receipt: `order_${orderData.id}`,
+            notes: {
+              order_id: orderData.id,
+              plan: currentPlan.name,
+              customer_name: formData.name,
+            },
+          },
+        }
+      );
+
+      if (razorpayError || !razorpayData) {
+        throw new Error("Failed to create payment order");
+      }
+
+      // Open Razorpay checkout
+      const options = {
+        key: razorpayData.keyId,
+        amount: razorpayData.amount,
+        currency: razorpayData.currency,
+        name: "HomeMeals",
+        description: `${currentPlan.name} - ${paymentType === "postpaid" ? "Advance Payment" : "Full Payment"}`,
+        order_id: razorpayData.orderId,
+        handler: async (response: any) => {
+          // Verify payment
+          const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
+            "verify-razorpay-payment",
+            {
+              body: {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                order_id: orderData.id,
+              },
+            }
+          );
+
+          if (verifyError || !verifyData?.success) {
+            toast({
+              title: "Payment Verification Failed",
+              description: "Please contact support with your payment details.",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          setOrderPlaced(true);
+          toast({
+            title: "Payment Successful!",
+            description: "Your order has been placed successfully.",
+          });
+        },
+        prefill: {
+          name: formData.name,
+          contact: formData.phone,
+        },
+        theme: {
+          color: "#C2622D",
+        },
+        modal: {
+          ondismiss: () => {
+            setIsSubmitting(false);
+            toast({
+              title: "Payment Cancelled",
+              description: "You can try again when ready.",
+            });
+          },
+        },
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.open();
+    } catch (error: any) {
+      console.error("Order error:", error);
+      toast({
+        title: "Order Failed",
+        description: error.message || "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+      setIsSubmitting(false);
+    }
   };
 
   if (orderPlaced) {
@@ -105,10 +214,10 @@ const Order = () => {
               <Check className="w-10 h-10 text-primary-foreground" />
             </div>
             <h1 className="font-display text-3xl font-bold text-foreground mb-4">
-              Order Confirmed!
+              Payment Successful!
             </h1>
             <p className="text-muted-foreground mb-6">
-              Thank you for your order, {formData.name}! We've received your order for the{" "}
+              Thank you for your order, {formData.name}! We've received your payment for the{" "}
               <strong>{currentPlan.name}</strong>.
             </p>
             <Card className="bg-card border-border mb-6">
@@ -123,13 +232,13 @@ const Order = () => {
                     <span className="font-medium text-foreground capitalize">{paymentType}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total Amount:</span>
-                    <span className="font-bold text-primary">₹{totalPrice}</span>
+                    <span className="text-muted-foreground">Amount Paid:</span>
+                    <span className="font-bold text-primary">₹{payableAmount}</span>
                   </div>
                   {paymentType === "postpaid" && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Advance (50%):</span>
-                      <span className="font-medium text-foreground">₹{advancePayment}</span>
+                      <span className="text-muted-foreground">Balance Due:</span>
+                      <span className="font-medium text-foreground">₹{totalPrice - advancePayment}</span>
                     </div>
                   )}
                 </div>
@@ -147,7 +256,11 @@ const Order = () => {
                 9550043174
               </a>
             </div>
-            <Button variant="hero" size="lg" onClick={() => setOrderPlaced(false)}>
+            <Button variant="hero" size="lg" onClick={() => {
+              setOrderPlaced(false);
+              setFormData({ name: "", phone: "", address: "" });
+              setIsSubmitting(false);
+            }}>
               Place Another Order
             </Button>
           </div>
@@ -340,10 +453,16 @@ const Order = () => {
                         <span className="text-xl font-bold text-primary">₹{totalPrice}</span>
                       </div>
                       {paymentType === "postpaid" && (
-                        <div className="flex justify-between mt-2 text-sm">
-                          <span className="text-muted-foreground">Advance Payment (50%):</span>
-                          <span className="text-secondary font-semibold">₹{advancePayment}</span>
-                        </div>
+                        <>
+                          <div className="flex justify-between mt-2 text-sm">
+                            <span className="text-muted-foreground">Pay Now (50%):</span>
+                            <span className="text-secondary font-semibold">₹{advancePayment}</span>
+                          </div>
+                          <div className="flex justify-between mt-1 text-sm">
+                            <span className="text-muted-foreground">On Delivery:</span>
+                            <span className="text-foreground">₹{totalPrice - advancePayment}</span>
+                          </div>
+                        </>
                       )}
                     </div>
 
@@ -352,9 +471,16 @@ const Order = () => {
                       variant="hero"
                       size="lg"
                       className="w-full"
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || !razorpayLoaded}
                     >
-                      {isSubmitting ? "Placing Order..." : "Place Order"}
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        `Pay ₹${payableAmount}`
+                      )}
                     </Button>
 
                     <div className="text-center text-sm text-muted-foreground">
