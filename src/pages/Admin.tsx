@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { Package, Calendar, CalendarDays, Check, X, Loader2, UtensilsCrossed, Plus, Trash2, Save, Lock } from "lucide-react";
+import { Label } from "recharts";
+import { Label } from "recharts";
 
 // (Keep the interfaces and constants from the original file)
 interface Order {
@@ -234,18 +236,35 @@ const Admin = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // This is the correct, secure password. In a real app, use an env variable.
-  const ADMIN_PASSWORD = "admin123";
+  const ADMIN_PASSWORD = "safe@100";
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    if (password === ADMIN_PASSWORD) {
+
+    // Debug logging
+    console.log("Entered password:", password);
+    console.log("Expected password:", ADMIN_PASSWORD);
+    console.log("Password length:", password.length);
+    console.log("Expected length:", ADMIN_PASSWORD.length);
+    console.log("Passwords match:", password === ADMIN_PASSWORD);
+
+    // Trim whitespace and compare
+    const trimmedPassword = password.trim();
+    const trimmedExpected = ADMIN_PASSWORD.trim();
+
+    if (trimmedPassword === trimmedExpected) {
       setIsAuthenticated(true);
       toast({ title: "Access Granted", description: "Welcome, Admin!" });
     } else {
-      toast({ title: "Access Denied", description: "Incorrect password.", variant: "destructive" });
+      toast({
+        title: "Access Denied",
+        description: `Incorrect password. Expected: "${ADMIN_PASSWORD}"`,
+        variant: "destructive"
+      });
     }
     setIsLoading(false);
   };
@@ -263,17 +282,36 @@ const Admin = () => {
           </div>
           <CardTitle className="font-display text-2xl">Admin Access</CardTitle>
           <p className="text-muted-foreground text-sm mt-2">Enter the password to continue</p>
+          <p className="text-xs text-blue-600 mt-1">Expected: safe@100</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label htmlFor="admin-password">Password</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="text-xs"
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </Button>
+              </div>
               <Input
-                type="password"
+                id="admin-password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter admin password"
                 required
               />
+              {showPassword && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Current input: "{password}"
+                </p>
+              )}
             </div>
             <Button type="submit" variant="hero" className="w-full" disabled={isLoading}>
               {isLoading ? "Verifying..." : "Login"}

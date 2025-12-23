@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth.tsx";
 import { supabase } from "@/integrations/supabase/client";
+import { createLocalRazorpayOrder, verifyLocalRazorpayPayment, shouldUseLocalIntegration } from "@/lib/razorpay-local";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -116,11 +117,24 @@ const Order = () => {
     setIsSubmitting(true);
 
     try {
+      console.log("Creating order with data:", {
+        user_id: user?.id,
+        customer_name: formData.name,
+        phone: formData.phone,
+        address: formData.address,
+        plan_type: currentPlan.planType,
+        payment_type: paymentType,
+        total_amount: totalPrice,
+      });
+
       // First create the order in database
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
         .insert({
           user_id: user?.id,
+          customer_name: formData.name,
+          phone: formData.phone,
+          address: formData.address,
           plan_type: currentPlan.planType,
           payment_type: paymentType,
           total_amount: totalPrice,
@@ -129,27 +143,40 @@ const Order = () => {
         .single();
 
       if (orderError || !orderData) {
-        throw new Error("Failed to create order");
+        console.error("Order creation error:", orderError);
+        throw new Error(orderError?.message || "Failed to create order");
       }
 
-      // Create Razorpay order
-      const { data: razorpayData, error: razorpayError } = await supabase.functions.invoke(
-        "create-razorpay-order",
-        {
-          body: {
-            amount: payableAmount,
-            receipt: `order_${orderData.id}`,
-            notes: {
-              order_id: orderData.id,
-              plan: currentPlan.name,
-              customer_name: formData.name,
-            },
-          },
-        }
-      );
+      // Create Razorpay order with real keys
+      const useLocal = shouldUseLocalIntegration();
+      let razorpayData;
 
-      if (razorpayError || !razorpayData) {
-        throw new Error("Failed to create payment order");
+      if (useLocal) {
+        // Use local Razorpay integration with real keys
+        console.log("Using local Razorpay integration with real keys");
+        razorpayData = await createLocalRazorpayOrder(payableAmount, orderData.id, formData.name);
+      } else {
+        // Use Supabase edge functions (for production)
+        const { data, error: razorpayError } = await supabase.functions.invoke(
+          "create-razorpay-order",
+          {
+            body: {
+              amount: payableAmount,
+              receipt: `order_${orderData.id}`,
+              notes: {
+                order_id: orderData.id,
+                plan: currentPlan.name,
+                customer_name: formData.name,
+              },
+            },
+          }
+        );
+
+        if (razorpayError || !data) {
+          throw new Error("Failed to create payment order");
+        }
+
+        razorpayData = data;
       }
 
       // Open Razorpay checkout
@@ -157,37 +184,56 @@ const Order = () => {
         key: razorpayData.keyId,
         amount: razorpayData.amount,
         currency: razorpayData.currency,
-        name: "HomeMeals",
+        name: "Daily Dish Delights",
         description: `${currentPlan.name} - ${paymentType === "postpaid" ? "Advance Payment" : "Full Payment"}`,
-        order_id: razorpayData.orderId,
+        // Note: order_id is optional for simple payments
         handler: async (response: any) => {
-          // Verify payment
-          const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
-            "verify-razorpay-payment",
-            {
-              body: {
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                order_id: orderData.id,
-              },
-            }
-          );
+          try {
+            if (useLocal) {
+              // Use local payment verification with real Razorpay response
+              console.log("Using local payment verification");
+              const verifyResult = await verifyLocalRazorpayPayment(
+                response.razorpay_order_id || "direct_payment",
+                response.razorpay_payment_id,
+                response.razorpay_signature || "direct_signature",
+                orderData.id
+              );
 
-          if (verifyError || !verifyData?.success) {
+              if (!verifyResult.success) {
+                throw new Error(verifyResult.message);
+              }
+            } else {
+              // Use Supabase edge functions for verification
+              const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
+                "verify-razorpay-payment",
+                {
+                  body: {
+                    razorpay_order_id: response.razorpay_order_id,
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_signature: response.razorpay_signature,
+                    order_id: orderData.id,
+                  },
+                }
+              );
+
+              if (verifyError || !verifyData?.success) {
+                throw new Error("Payment verification failed");
+              }
+            }
+
+            setOrderPlaced(true);
+            toast({
+              title: "Payment Successful!",
+              description: "Your order has been placed successfully.",
+            });
+          } catch (error: any) {
+            console.error("Payment verification error:", error);
             toast({
               title: "Payment Verification Failed",
-              description: "Please contact support with your payment details.",
+              description: error.message || "Please contact support with your payment details.",
               variant: "destructive",
             });
-            return;
           }
-
-          setOrderPlaced(true);
-          toast({
-            title: "Payment Successful!",
-            description: "Your order has been placed successfully.",
-          });
         },
         prefill: {
           name: formData.name,
@@ -206,6 +252,17 @@ const Order = () => {
           },
         },
       };
+
+      // Always use real Razorpay now (with your test keys)
+      if (!razorpayLoaded) {
+        toast({
+          title: "Payment Gateway Loading",
+          description: "Please wait while payment gateway loads.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
 
       const razorpay = new window.Razorpay(options);
       razorpay.open();
@@ -294,6 +351,26 @@ const Order = () => {
     <div className="min-h-screen bg-background">
       <Header />
 
+      {/* Razorpay Test Mode Indicator */}
+      {import.meta.env.DEV && (
+        <div className="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4">
+          <div className="container mx-auto px-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm">
+                  <strong>Test Mode:</strong> Using Razorpay test keys. Use test card: 4111 1111 1111 1111
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <main className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-10">
@@ -323,11 +400,10 @@ const Order = () => {
                       <Label
                         key={plan.id}
                         htmlFor={plan.id}
-                        className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                          selectedPlan === plan.id
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:border-primary/50"
-                        }`}
+                        className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedPlan === plan.id
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50"
+                          }`}
                       >
                         <RadioGroupItem value={plan.id} id={plan.id} />
                         <div className="flex-1">
@@ -354,11 +430,10 @@ const Order = () => {
                   >
                     <Label
                       htmlFor="prepaid"
-                      className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                        paymentType === "prepaid"
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/50"
-                      }`}
+                      className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentType === "prepaid"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                        }`}
                     >
                       <RadioGroupItem value="prepaid" id="prepaid" />
                       <CreditCard className="w-5 h-5 text-primary" />
@@ -369,11 +444,10 @@ const Order = () => {
                     </Label>
                     <Label
                       htmlFor="postpaid"
-                      className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                        paymentType === "postpaid"
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/50"
-                      }`}
+                      className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentType === "postpaid"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                        }`}
                     >
                       <RadioGroupItem value="postpaid" id="postpaid" />
                       <Wallet className="w-5 h-5 text-secondary" />
