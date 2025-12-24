@@ -112,7 +112,7 @@ const AdminDashboard = () => {
     const { data } = await supabase
       .from("orders")
       .select("*")
-      .eq("payment_status", "paid") // Only show paid orders
+      .or("payment_status.eq.paid,and(payment_type.eq.postpaid,payment_status.eq.pending)") // Show paid orders OR postpaid pending orders
       .order("created_at", { ascending: false });
     if (data) setOrders(data as Order[]);
   };
@@ -177,6 +177,28 @@ const AdminDashboard = () => {
     }
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     toast({ title: "Order Updated", description: `Order marked as ${newStatus}.` });
+  };
+
+  const markPaymentReceived = async (orderId: string) => {
+    const { error } = await supabase
+      .from("orders")
+      .update({
+        payment_status: "paid",
+        payment_completed_at: new Date().toISOString()
+      })
+      .eq("id", orderId);
+
+    if (error) {
+      toast({ title: "Update Failed", description: "Could not update payment status.", variant: "destructive" });
+      return;
+    }
+
+    setOrders(prev => prev.map(o =>
+      o.id === orderId
+        ? { ...o, payment_status: "paid" as const, payment_completed_at: new Date().toISOString() }
+        : o
+    ));
+    toast({ title: "Payment Updated", description: "Payment marked as received." });
   };
 
   const updateMealItem = (mealId: string, index: number, value: string) => {
@@ -361,12 +383,25 @@ const AdminDashboard = () => {
 
           {/* Payment Status Badge */}
           <div className="mb-2">
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-              ✅ Payment Completed
-            </Badge>
+            {order.payment_type === "prepaid" && order.payment_status === "paid" && (
+              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                ✅ Payment Completed
+              </Badge>
+            )}
+            {order.payment_type === "postpaid" && order.payment_status === "pending" && (
+              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                💰 Pending Payment: ₹{order.total_amount}
+              </Badge>
+            )}
+            {order.payment_type === "postpaid" && order.payment_status === "paid" && (
+              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                ✅ Payment Received
+              </Badge>
+            )}
             {order.payment_completed_at && (
               <p className="text-xs text-muted-foreground mt-1">
-                Paid on: {new Date(order.payment_completed_at).toLocaleString()}
+                {order.payment_status === "paid" ? "Paid on: " : "Created on: "}
+                {new Date(order.payment_completed_at || order.created_at).toLocaleString()}
               </p>
             )}
           </div>
@@ -396,7 +431,20 @@ const AdminDashboard = () => {
               <p className="font-semibold text-primary">₹{order.total_amount}</p>
               <p className="text-xs text-muted-foreground capitalize">{order.payment_type}</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              {/* Payment Action for Postpaid Orders */}
+              {order.payment_type === "postpaid" && order.payment_status === "pending" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => markPaymentReceived(order.id)}
+                  className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                >
+                  💰 Mark Paid
+                </Button>
+              )}
+
+              {/* Delivery Status Actions */}
               {order.status === "pending" ? (
                 <Button size="sm" variant="leaf" onClick={() => updateOrderStatus(order.id, "delivered")}>
                   <Check className="w-4 h-4" /> Delivered
@@ -433,6 +481,51 @@ const AdminDashboard = () => {
       <main className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           {/* Stats Cards */}
+          <Card className="bg-card border-border">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                  <Check className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">
+                    {orders.filter(o => o.payment_status === "paid").length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Paid Orders</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border-border">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+                  <DollarSign className="w-5 h-5 text-orange-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">
+                    {orders.filter(o => o.payment_type === "postpaid" && o.payment_status === "pending").length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Pending Payments</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border-border">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                  <Package className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{orders.length}</p>
+                  <p className="text-sm text-muted-foreground">Total Orders</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
         <Tabs defaultValue="orders" className="space-y-6">
           <TabsList className="bg-muted">
