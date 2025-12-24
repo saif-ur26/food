@@ -165,6 +165,9 @@ const Index = () => {
         </div>
       </section>
 
+      {/* Meal Plans Section */}
+      <DynamicMealPlans />
+
       {/* Add-ons Section */}
       {addOns.length > 0 && (
         <section className="py-16 bg-background">
@@ -236,9 +239,6 @@ const Index = () => {
           </div>
         </section>
       )}
-
-      {/* Meal Plans Section */}
-      <DynamicMealPlans />
 
       {/* Daily Menu Section */}
       <DailyMenu />
