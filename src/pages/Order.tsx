@@ -481,6 +481,39 @@ const Order = () => {
                       <span className="font-medium text-foreground">₹{totalPrice - advancePayment}</span>
                     </div>
                   )}
+                  <div className="border-t pt-3 mt-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Delivery Time:</span>
+                      <div className="text-right">
+                        <span className="font-bold text-blue-600">8:00 PM - 9:00 PM</span>
+                        <p className="text-xs text-muted-foreground">Daily delivery</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Delivery Information Card */}
+            <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 mb-6">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <Clock className="w-5 h-5 text-blue-600" />
+                  <h3 className="font-semibold text-blue-800">Delivery Information</h3>
+                </div>
+                <div className="text-left space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                    <span className="text-blue-700">Your dinner will be delivered between <strong>8:00 PM - 9:00 PM</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                    <span className="text-blue-700">Fresh, hot meal delivered to: <strong>{formData.address}</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                    <span className="text-blue-700">No delivery charges • Free home delivery</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -559,6 +592,29 @@ const Order = () => {
             </Card>
           </div>
         )}
+
+        {/* Delivery Time Information */}
+        <div className="max-w-4xl mx-auto mb-6">
+          <Card className="border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-blue-800">Daily Delivery Time</p>
+                    <p className="text-sm text-blue-700">Fresh dinner delivered hot to your door</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-blue-600">8:00 PM - 9:00 PM</p>
+                  <p className="text-sm text-blue-700">Every day, including weekends</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Plan Duration Notice - Show for multi-day plans */}
         {isMultiDayPlan && (

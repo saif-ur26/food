@@ -27,8 +27,8 @@ const features = [
   },
   {
     icon: Clock,
-    title: "Hot Dinner Delivered On Time",
-    description: "Hot dinner delivered on time every day, right to your doorstep before evening",
+    title: "Daily Delivery: 8:00 PM - 9:00 PM",
+    description: "Hot dinner delivered on time every day between 8:00 PM to 9:00 PM, right to your doorstep",
   },
   {
     icon: Truck,
@@ -91,7 +91,7 @@ const Index = () => {
                   ₹179 Dinner Meal now at just ₹129
                 </p>
                 <p className="text-sm text-orange-700">
-                  ⏰ Order before 5:00 PM for same-day dinner delivery
+                  ⏰ Order before 5:00 PM for same-day dinner delivery (8:00 PM - 9:00 PM)
                 </p>
               </div>
               <p className="text-lg text-muted-foreground max-w-lg">
@@ -184,6 +184,52 @@ const Index = () => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Delivery Time Section */}
+      <section className="py-16 bg-background">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+              <CardContent className="p-8 text-center">
+                <div className="flex items-center justify-center mb-4">
+                  <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
+                    <Clock className="w-8 h-8 text-blue-600" />
+                  </div>
+                </div>
+                <h3 className="font-display text-2xl md:text-3xl font-bold text-foreground mb-4">
+                  Daily Delivery Time
+                </h3>
+                <div className="bg-white rounded-xl p-6 mb-4 border border-blue-200">
+                  <p className="text-3xl md:text-4xl font-bold text-blue-600 mb-2">
+                    8:00 PM - 9:00 PM
+                  </p>
+                  <p className="text-lg text-muted-foreground">
+                    Every day, including weekends
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                    <span>Order before 5:00 PM for same-day delivery</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                    <span>Hot & fresh dinner delivered to your door</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                    <span>No delivery charges, completely free</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                    <span>Reliable delivery, 7 days a week</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </section>
