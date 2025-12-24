@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
-import { Package, Check, X, Loader2, Plus, Trash2, Save, Lock, DollarSign, Tag, Percent, UtensilsCrossed, Edit } from "lucide-react";
+import { Package, Check, X, Loader2, Plus, Trash2, Save, Lock, DollarSign, Tag, Percent, UtensilsCrossed, Edit, Copy, Phone } from "lucide-react";
 import { getPricingPlans, getActiveOffers, updatePricingPlan, upsertOffer, PricingPlan, Offer } from "@/lib/pricing";
 
 // (Keep the interfaces and constants from the original file)
@@ -21,6 +21,10 @@ interface Order {
   address: string;
   plan_type: "daily" | "weekly" | "fifteen_day" | "monthly";
   payment_type: "prepaid" | "postpaid";
+  payment_status: "pending" | "paid" | "failed" | "refunded";
+  razorpay_order_id?: string;
+  razorpay_payment_id?: string;
+  payment_completed_at?: string;
   total_amount: number;
   status: "pending" | "delivered" | "cancelled";
   created_at: string;
@@ -108,6 +112,7 @@ const AdminDashboard = () => {
     const { data } = await supabase
       .from("orders")
       .select("*")
+      .eq("payment_status", "paid") // Only show paid orders
       .order("created_at", { ascending: false });
     if (data) setOrders(data as Order[]);
   };
@@ -302,19 +307,69 @@ const AdminDashboard = () => {
     // Get add-ons for this order
     const orderAddOnsForOrder = orderAddOns.filter(oa => oa.order_id === order.id);
 
+    // Copy address to clipboard
+    const copyAddress = async () => {
+      try {
+        await navigator.clipboard.writeText(order.address);
+        toast({ title: "Address Copied", description: "Address copied to clipboard!" });
+      } catch (error) {
+        toast({ title: "Copy Failed", description: "Could not copy address.", variant: "destructive" });
+      }
+    };
+
+    // Call phone number
+    const callPhone = () => {
+      window.open(`tel:${order.phone}`, '_self');
+    };
+
     return (
       <Card className="bg-card border-border">
         <CardContent className="p-4">
           <div className="flex items-start justify-between mb-3">
-            <div>
+            <div className="flex-1">
               <h4 className="font-semibold text-foreground">{order.customer_name}</h4>
-              <p className="text-sm text-muted-foreground">{order.phone}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-sm text-muted-foreground">{order.phone}</p>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={callPhone}
+                  className="h-6 w-6 p-0 hover:bg-green-100 hover:text-green-700"
+                  title="Call customer"
+                >
+                  <Phone className="w-3 h-3" />
+                </Button>
+              </div>
             </div>
             <Badge variant={order.status === "delivered" ? "default" : "secondary"} className={order.status === "delivered" ? "bg-secondary text-secondary-foreground" : "bg-accent text-accent-foreground"}>
               {order.status === "delivered" ? "Delivered" : "Pending"}
             </Badge>
           </div>
-          <p className="text-sm text-muted-foreground mb-2">{order.address}</p>
+
+          <div className="flex items-start gap-2 mb-2">
+            <p className="text-sm text-muted-foreground flex-1">{order.address}</p>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={copyAddress}
+              className="h-6 w-6 p-0 hover:bg-blue-100 hover:text-blue-700"
+              title="Copy address"
+            >
+              <Copy className="w-3 h-3" />
+            </Button>
+          </div>
+
+          {/* Payment Status Badge */}
+          <div className="mb-2">
+            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+              ✅ Payment Completed
+            </Badge>
+            {order.payment_completed_at && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Paid on: {new Date(order.payment_completed_at).toLocaleString()}
+              </p>
+            )}
+          </div>
 
           {/* Add-ons Display */}
           {orderAddOnsForOrder.length > 0 && (

@@ -148,9 +148,13 @@ export interface Database {
           created_at: string
           customer_name: string
           id: string
+          payment_completed_at: string | null
+          payment_status: Database["public"]["Enums"]["payment_status"]
           payment_type: Database["public"]["Enums"]["payment_type"]
           phone: string
           plan_type: Database["public"]["Enums"]["plan_type"]
+          razorpay_order_id: string | null
+          razorpay_payment_id: string | null
           status: Database["public"]["Enums"]["order_status"]
           total_amount: number
           updated_at: string
@@ -161,9 +165,13 @@ export interface Database {
           created_at?: string
           customer_name: string
           id?: string
+          payment_completed_at?: string | null
+          payment_status?: Database["public"]["Enums"]["payment_status"]
           payment_type: Database["public"]["Enums"]["payment_type"]
           phone: string
           plan_type: Database["public"]["Enums"]["plan_type"]
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           total_amount: number
           updated_at?: string
@@ -174,9 +182,13 @@ export interface Database {
           created_at?: string
           customer_name?: string
           id?: string
+          payment_completed_at?: string | null
+          payment_status?: Database["public"]["Enums"]["payment_status"]
           payment_type?: Database["public"]["Enums"]["payment_type"]
           phone?: string
           plan_type?: Database["public"]["Enums"]["plan_type"]
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           total_amount?: number
           updated_at?: string
@@ -272,6 +284,7 @@ export interface Database {
     Enums: {
       app_role: "admin" | "user"
       order_status: "pending" | "delivered" | "cancelled"
+      payment_status: "pending" | "paid" | "failed" | "refunded"
       payment_type: "prepaid" | "postpaid"
       plan_type: "daily" | "weekly" | "monthly"
     }
