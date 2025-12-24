@@ -814,7 +814,7 @@ const Order = () => {
                           <div key={index} className="text-sm">
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Chicken Fry</span>
-                              <span className="text-foreground">₹50 × {selection.quantity}</span>
+                              <span className="text-foreground">₹50 × {selection.quantity} packs</span>
                             </div>
                             {selection.selectedDates.length > 0 && (
                               <div className="text-xs text-muted-foreground">

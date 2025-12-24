@@ -1,14 +1,17 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import DynamicMealPlans from "@/components/DynamicMealPlans";
 import DailyMenu from "@/components/DailyMenu";
 import OfferBanner from "@/components/OfferBanner";
 import { getPricingPlans } from "@/lib/pricing";
+import { supabase } from "@/integrations/supabase/client";
 import heroImage from "@/assets/hero-meals.jpg";
-import { ArrowRight, Clock, Leaf, Heart, Truck } from "lucide-react";
+import { ArrowRight, Clock, Leaf, Heart, Truck, Plus, UtensilsCrossed } from "lucide-react";
 
 const features = [
   {
@@ -35,6 +38,7 @@ const features = [
 
 const Index = () => {
   const [dailyPrice, setDailyPrice] = useState(149);
+  const [addOns, setAddOns] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -44,6 +48,17 @@ const Index = () => {
         const dailyPlan = plans.find(plan => plan.plan_type === 'daily');
         if (dailyPlan) {
           setDailyPrice(dailyPlan.current_price);
+        }
+
+        // Fetch add-ons
+        const { data: addOnsData, error } = await supabase
+          .from('add_ons')
+          .select('*')
+          .eq('is_active', true)
+          .order('created_at', { ascending: true });
+
+        if (!error && addOnsData) {
+          setAddOns(addOnsData);
         }
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -149,6 +164,78 @@ const Index = () => {
           </div>
         </div>
       </section>
+
+      {/* Add-ons Section */}
+      {addOns.length > 0 && (
+        <section className="py-16 bg-background">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-12">
+              <span className="inline-block px-4 py-2 rounded-full bg-secondary/20 text-secondary-foreground text-sm font-medium mb-4">
+                Enhance Your Meal
+              </span>
+              <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
+                Delicious Add-Ons
+              </h2>
+              <p className="text-muted-foreground max-w-2xl mx-auto">
+                Make your meal even more special with our tasty add-ons. Perfect for those extra cravings!
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
+              {addOns.map((addon, index) => (
+                <Card
+                  key={addon.id}
+                  className="bg-card border-border hover:shadow-soft transition-all duration-300 hover:-translate-y-1"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                >
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <UtensilsCrossed className="w-5 h-5 text-primary" />
+                        {addon.name}
+                      </span>
+                      <Badge variant="secondary" className="bg-primary/10 text-primary">
+                        ₹{addon.price}
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {addon.description && (
+                      <p className="text-sm text-muted-foreground">
+                        {addon.description}
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-between pt-2 border-t border-border">
+                      <div className="text-xs text-muted-foreground">
+                        Per pack
+                      </div>
+                      <Link to="/order">
+                        <Button size="sm" variant="outline" className="hover:bg-primary hover:text-primary-foreground">
+                          <Plus className="w-3 h-3 mr-1" />
+                          Add to Order
+                        </Button>
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            <div className="text-center mt-8">
+              <p className="text-sm text-muted-foreground mb-4">
+                Add-ons can be selected for specific days when ordering weekly or monthly plans
+              </p>
+              <Link to="/order">
+                <Button variant="hero" size="lg">
+                  Customize Your Order
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Meal Plans Section */}
       <DynamicMealPlans />

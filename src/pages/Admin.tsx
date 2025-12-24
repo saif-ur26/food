@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
-import { Package, Check, X, Loader2, Plus, Trash2, Save, Lock, DollarSign, Tag, Percent } from "lucide-react";
+import { Package, Check, X, Loader2, Plus, Trash2, Save, Lock, DollarSign, Tag, Percent, UtensilsCrossed, Edit } from "lucide-react";
 import { getPricingPlans, getActiveOffers, updatePricingPlan, upsertOffer, PricingPlan, Offer } from "@/lib/pricing";
 
 // (Keep the interfaces and constants from the original file)
@@ -31,6 +32,26 @@ interface DailyMeal {
   items: string[];
 }
 
+interface AddOn {
+  id: string;
+  name: string;
+  price: number;
+  description: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+interface OrderAddOn {
+  id: string;
+  order_id: string;
+  addon_id: string;
+  selected_dates: string[];
+  quantity: number;
+  total_price: number;
+  created_at: string;
+}
+
 const planLabels: Record<string, string> = {
   daily: "Daily Meal",
   weekly: "Weekly Plan",
@@ -45,8 +66,17 @@ const AdminDashboard = () => {
   const [meals, setMeals] = useState<DailyMeal[]>([]);
   const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [addOns, setAddOns] = useState<AddOn[]>([]);
+  const [orderAddOns, setOrderAddOns] = useState<OrderAddOn[]>([]);
   const [editingMeals, setEditingMeals] = useState<Record<string, string[]>>({});
   const [savingMeals, setSavingMeals] = useState<Record<string, boolean>>({});
+  const [editingAddOn, setEditingAddOn] = useState<string | null>(null);
+  const [newAddOn, setNewAddOn] = useState<Partial<AddOn>>({
+    name: '',
+    price: 0,
+    description: '',
+    is_active: true
+  });
   const [newOffer, setNewOffer] = useState<Partial<Offer>>({
     name: '',
     description: '',
@@ -65,7 +95,9 @@ const AdminDashboard = () => {
         fetchOrders(),
         fetchMeals(),
         fetchPricingPlans(),
-        fetchOffers()
+        fetchOffers(),
+        fetchAddOns(),
+        fetchOrderAddOns()
       ]);
       setIsLoading(false);
     };
@@ -98,6 +130,38 @@ const AdminDashboard = () => {
   const fetchOffers = async () => {
     const activeOffers = await getActiveOffers();
     setOffers(activeOffers);
+  };
+
+  const fetchAddOns = async () => {
+    const { data, error } = await supabase
+      .from('add_ons')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching add-ons:', error);
+      return;
+    }
+
+    setAddOns(data || []);
+  };
+
+  const fetchOrderAddOns = async () => {
+    const { data, error } = await supabase
+      .from('order_addons')
+      .select(`
+        *,
+        add_ons (name),
+        orders (customer_name, plan_type, created_at)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching order add-ons:', error);
+      return;
+    }
+
+    setOrderAddOns(data || []);
   };
 
   const updateOrderStatus = async (orderId: string, newStatus: "pending" | "delivered") => {
@@ -170,6 +234,62 @@ const AdminDashboard = () => {
     }
   };
 
+  const createAddOn = async () => {
+    try {
+      if (!newAddOn.name || !newAddOn.price) {
+        toast({ title: "Missing Information", description: "Please fill in add-on name and price.", variant: "destructive" });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('add_ons')
+        .insert({
+          name: newAddOn.name,
+          price: newAddOn.price,
+          description: newAddOn.description,
+          is_active: newAddOn.is_active
+        });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      await fetchAddOns();
+      setNewAddOn({
+        name: '',
+        price: 0,
+        description: '',
+        is_active: true
+      });
+      toast({ title: "Add-on Created", description: "Add-on created successfully." });
+    } catch (error: any) {
+      toast({ title: "Creation Failed", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const updateAddOn = async (id: string, updates: Partial<AddOn>) => {
+    try {
+      const { error } = await supabase
+        .from('add_ons')
+        .update(updates)
+        .eq('id', id);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      await fetchAddOns();
+      setEditingAddOn(null);
+      toast({ title: "Add-on Updated", description: "Add-on updated successfully." });
+    } catch (error: any) {
+      toast({ title: "Update Failed", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const toggleAddOnStatus = async (id: string, currentStatus: boolean) => {
+    await updateAddOn(id, { is_active: !currentStatus });
+  };
+
   if (isLoading) {
     return <div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   }
@@ -178,40 +298,65 @@ const AdminDashboard = () => {
   const weeklyOrders = orders.filter(o => o.plan_type === "weekly" || o.plan_type === "fifteen_day");
   const monthlyOrders = orders.filter(o => o.plan_type === "monthly");
 
-  const OrderCard = ({ order }: { order: Order }) => (
-    <Card className="bg-card border-border">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between mb-3">
-          <div>
-            <h4 className="font-semibold text-foreground">{order.customer_name}</h4>
-            <p className="text-sm text-muted-foreground">{order.phone}</p>
+  const OrderCard = ({ order }: { order: Order }) => {
+    // Get add-ons for this order
+    const orderAddOnsForOrder = orderAddOns.filter(oa => oa.order_id === order.id);
+
+    return (
+      <Card className="bg-card border-border">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div>
+              <h4 className="font-semibold text-foreground">{order.customer_name}</h4>
+              <p className="text-sm text-muted-foreground">{order.phone}</p>
+            </div>
+            <Badge variant={order.status === "delivered" ? "default" : "secondary"} className={order.status === "delivered" ? "bg-secondary text-secondary-foreground" : "bg-accent text-accent-foreground"}>
+              {order.status === "delivered" ? "Delivered" : "Pending"}
+            </Badge>
           </div>
-          <Badge variant={order.status === "delivered" ? "default" : "secondary"} className={order.status === "delivered" ? "bg-secondary text-secondary-foreground" : "bg-accent text-accent-foreground"}>
-            {order.status === "delivered" ? "Delivered" : "Pending"}
-          </Badge>
-        </div>
-        <p className="text-sm text-muted-foreground mb-2">{order.address}</p>
-        <div className="flex items-center justify-between pt-2 border-t border-border">
-          <div>
-            <p className="text-xs text-muted-foreground">{planLabels[order.plan_type]}</p>
-            <p className="font-semibold text-primary">₹{order.total_amount}</p>
-            <p className="text-xs text-muted-foreground capitalize">{order.payment_type}</p>
+          <p className="text-sm text-muted-foreground mb-2">{order.address}</p>
+
+          {/* Add-ons Display */}
+          {orderAddOnsForOrder.length > 0 && (
+            <div className="mb-2 p-2 bg-orange-50 rounded-lg border border-orange-200">
+              <p className="text-xs font-medium text-orange-800 mb-1">Add-ons:</p>
+              {orderAddOnsForOrder.map((orderAddon, index) => {
+                const addon = addOns.find(a => a.id === orderAddon.addon_id);
+                return (
+                  <div key={index} className="text-xs text-orange-700">
+                    + {addon?.name || 'Unknown Add-on'}
+                    {orderAddon.selected_dates.length > 0 && (
+                      <span className="ml-1">({orderAddon.selected_dates.length} days)</span>
+                    )}
+                    <span className="ml-1">×{orderAddon.quantity}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="flex items-center justify-between pt-2 border-t border-border">
+            <div>
+              <p className="text-xs text-muted-foreground">{planLabels[order.plan_type]}</p>
+              <p className="font-semibold text-primary">₹{order.total_amount}</p>
+              <p className="text-xs text-muted-foreground capitalize">{order.payment_type}</p>
+            </div>
+            <div className="flex gap-2">
+              {order.status === "pending" ? (
+                <Button size="sm" variant="leaf" onClick={() => updateOrderStatus(order.id, "delivered")}>
+                  <Check className="w-4 h-4" /> Delivered
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => updateOrderStatus(order.id, "pending")}>
+                  <X className="w-4 h-4" /> Undo
+                </Button>
+              )}
+            </div>
           </div>
-          <div className="flex gap-2">
-            {order.status === "pending" ? (
-              <Button size="sm" variant="leaf" onClick={() => updateOrderStatus(order.id, "delivered")}>
-                <Check className="w-4 h-4" /> Delivered
-              </Button>
-            ) : (
-              <Button size="sm" variant="outline" onClick={() => updateOrderStatus(order.id, "pending")}>
-                <X className="w-4 h-4" /> Undo
-              </Button>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -239,6 +384,7 @@ const AdminDashboard = () => {
             <TabsTrigger value="orders">Orders</TabsTrigger>
             <TabsTrigger value="menu">Edit Menu</TabsTrigger>
             <TabsTrigger value="pricing">Pricing</TabsTrigger>
+            <TabsTrigger value="addons">Add-ons</TabsTrigger>
             <TabsTrigger value="offers">Offers</TabsTrigger>
           </TabsList>
           <TabsContent value="orders" className="space-y-6">
@@ -332,6 +478,190 @@ const AdminDashboard = () => {
                       </div>
                       <div className="text-sm text-muted-foreground">
                         Type: {plan.plan_type}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+          {/* Add-ons Management Tab */}
+          <TabsContent value="addons" className="space-y-6">
+            {/* Create New Add-on */}
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UtensilsCrossed className="w-5 h-5 text-primary" />
+                  Create New Add-on
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Add-on Name</Label>
+                    <Input
+                      value={newAddOn.name}
+                      onChange={(e) => setNewAddOn({ ...newAddOn, name: e.target.value })}
+                      placeholder="e.g., Chicken Fry"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Price (₹)</Label>
+                    <Input
+                      type="number"
+                      value={newAddOn.price}
+                      onChange={(e) => setNewAddOn({ ...newAddOn, price: parseFloat(e.target.value) || 0 })}
+                      placeholder="50"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Description</Label>
+                  <Textarea
+                    value={newAddOn.description}
+                    onChange={(e) => setNewAddOn({ ...newAddOn, description: e.target.value })}
+                    placeholder="Describe the add-on..."
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={newAddOn.is_active}
+                    onCheckedChange={(checked) => setNewAddOn({ ...newAddOn, is_active: checked })}
+                  />
+                  <Label>Active Add-on</Label>
+                </div>
+
+                <Button onClick={createAddOn} className="w-full">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Add-on
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Existing Add-ons */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {addOns.map(addon => (
+                <Card key={addon.id} className="bg-card border-border">
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <UtensilsCrossed className="w-5 h-5 text-primary" />
+                        {editingAddOn === addon.id ? (
+                          <Input
+                            value={addon.name}
+                            onChange={(e) => {
+                              const updatedAddOns = addOns.map(a =>
+                                a.id === addon.id ? { ...a, name: e.target.value } : a
+                              );
+                              setAddOns(updatedAddOns);
+                            }}
+                            className="h-6 text-sm"
+                          />
+                        ) : (
+                          addon.name
+                        )}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={addon.is_active ? "default" : "secondary"}>
+                          {addon.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setEditingAddOn(editingAddOn === addon.id ? null : addon.id)}
+                        >
+                          <Edit className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="space-y-2">
+                      <Label>Price</Label>
+                      {editingAddOn === addon.id ? (
+                        <Input
+                          type="number"
+                          value={addon.price}
+                          onChange={(e) => {
+                            const updatedAddOns = addOns.map(a =>
+                              a.id === addon.id ? { ...a, price: parseFloat(e.target.value) || 0 } : a
+                            );
+                            setAddOns(updatedAddOns);
+                          }}
+                          className="h-8"
+                          step="0.01"
+                        />
+                      ) : (
+                        <div className="text-lg font-semibold text-primary">₹{addon.price}</div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Description</Label>
+                      {editingAddOn === addon.id ? (
+                        <Textarea
+                          value={addon.description || ''}
+                          onChange={(e) => {
+                            const updatedAddOns = addOns.map(a =>
+                              a.id === addon.id ? { ...a, description: e.target.value } : a
+                            );
+                            setAddOns(updatedAddOns);
+                          }}
+                          className="min-h-[60px]"
+                        />
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          {addon.description || 'No description'}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t">
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={addon.is_active}
+                          onCheckedChange={() => toggleAddOnStatus(addon.id, addon.is_active)}
+                        />
+                        <Label className="text-sm">Active</Label>
+                      </div>
+
+                      {editingAddOn === addon.id && (
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEditingAddOn(null)}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => updateAddOn(addon.id, {
+                              name: addon.name,
+                              price: addon.price,
+                              description: addon.description
+                            })}
+                          >
+                            <Save className="w-3 h-3 mr-1" />
+                            Save
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Usage Statistics */}
+                    <div className="text-xs text-muted-foreground pt-2 border-t">
+                      <div>
+                        Orders with this add-on: {orderAddOns.filter(oa => oa.addon_id === addon.id).length}
+                      </div>
+                      <div>
+                        Created: {new Date(addon.created_at).toLocaleDateString()}
                       </div>
                     </div>
                   </CardContent>

@@ -196,9 +196,9 @@ const AddOnSelector = ({
 
                             {isSelected && (
                                 <div className="ml-6 space-y-3 p-3 bg-muted/30 rounded-lg">
-                                    {/* Quantity Selector */}
+                                    {/* Pack Selector */}
                                     <div className="flex items-center gap-3">
-                                        <span className="text-sm font-medium">Quantity:</span>
+                                        <span className="text-sm font-medium">Packs:</span>
                                         <div className="flex items-center gap-2">
                                             <Button
                                                 size="sm"
@@ -242,7 +242,7 @@ const AddOnSelector = ({
                                             </div>
                                             {selection && selection.selectedDates.length > 0 && (
                                                 <p className="text-xs text-muted-foreground">
-                                                    Selected {selection.selectedDates.length} day(s) × ₹{addon.price} × {selection.quantity} = ₹{addon.price * selection.selectedDates.length * selection.quantity}
+                                                    Selected {selection.selectedDates.length} day(s) × ₹{addon.price} × {selection.quantity} packs = ₹{addon.price * selection.selectedDates.length * selection.quantity}
                                                 </p>
                                             )}
                                         </div>
@@ -251,7 +251,7 @@ const AddOnSelector = ({
                                     {/* Daily Plan Price Display */}
                                     {planType === 'daily' && selection && (
                                         <p className="text-xs text-muted-foreground">
-                                            ₹{addon.price} × {selection.quantity} = ₹{addon.price * selection.quantity}
+                                            ₹{addon.price} × {selection.quantity} packs = ₹{addon.price * selection.quantity}
                                         </p>
                                     )}
                                 </div>
