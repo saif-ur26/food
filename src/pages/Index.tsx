@@ -16,23 +16,23 @@ import { ArrowRight, Clock, Leaf, Heart, Truck, Plus, UtensilsCrossed } from "lu
 const features = [
   {
     icon: Leaf,
-    title: "Fresh Ingredients",
-    description: "We use only the freshest vegetables and spices sourced daily",
+    title: "Fresh Vegetables & Quality Spices",
+    description: "Fresh vegetables & quality spices used daily for authentic home-style cooking",
   },
   {
     icon: Heart,
-    title: "Made with Love",
-    description: "Every meal is prepared with care, just like home cooking",
+    title: "Home-Style Cooking",
+    description: "Home-style cooking, no restaurant food. Every meal prepared with love and care",
   },
   {
     icon: Clock,
-    title: "On-Time Delivery",
-    description: "Hot meals delivered right to your doorstep before dinner",
+    title: "Hot Dinner Delivered On Time",
+    description: "Hot dinner delivered on time every day, right to your doorstep before evening",
   },
   {
     icon: Truck,
-    title: "Free Delivery",
-    description: "No delivery charges on all meal plans across the city",
+    title: "No Delivery Charges",
+    description: "Budget-friendly dinner plans with free home delivery across the city",
   },
 ];
 
@@ -79,44 +79,57 @@ const Index = () => {
           <div className="grid lg:grid-cols-2 gap-8 items-center">
             <div className="relative z-10 space-y-6 animate-fade-in">
               <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium">
-                <Clock className="w-4 h-4" />
-                Order before 5:00 PM for same-day delivery
+                🎉 New Year Special Offer 🎉
               </span>
               <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight">
-                Delicious Daily Dinner{" "}
-                <span className="text-gradient">Delivered Fresh</span>
+                Mamma's Food – Fresh Homemade{" "}
+                <span className="text-gradient">Dinner Delivered Daily</span>
               </h1>
+              <div className="bg-gradient-to-r from-orange-100 to-red-100 border border-orange-200 rounded-xl p-4 mb-4">
+                <p className="text-lg font-bold text-orange-800 mb-2">
+                  ₹179 Dinner Meal now at just ₹129
+                </p>
+                <p className="text-sm text-orange-700">
+                  ⏰ Order before 5:00 PM for same-day dinner delivery
+                </p>
+              </div>
               <p className="text-lg text-muted-foreground max-w-lg">
-                Experience the taste of home with our freshly prepared meals.
-                Nutritious, delicious, and delivered right to your doorstep every day.
+                Experience authentic home-style Indian dinner, freshly cooked every evening and delivered hot to your doorstep.
+                <br />
+                <span className="font-semibold text-foreground">👉 Affordable • Hygienic • Home-Cooked</span>
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link to="/order">
                   <Button variant="hero" size="xl">
-                    Order Now
+                    Order Dinner Now
                     <ArrowRight className="w-5 h-5" />
                   </Button>
                 </Link>
-                <Link to="/about">
+                <a href="tel:9550043174">
                   <Button variant="outline" size="xl">
-                    Learn More
+                    📞 Call: 9550043174
                   </Button>
-                </Link>
+                </a>
               </div>
               <div className="flex items-center gap-6 pt-4">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-foreground">500+</p>
-                  <p className="text-sm text-muted-foreground">Happy Customers</p>
+                  <p className="text-sm text-muted-foreground">Happy Dinner Customers</p>
                 </div>
                 <div className="w-px h-12 bg-border"></div>
                 <div className="text-center">
                   <p className="text-2xl font-bold text-foreground">4.9★</p>
-                  <p className="text-sm text-muted-foreground">Rating</p>
+                  <p className="text-sm text-muted-foreground">Customer Rating</p>
                 </div>
                 <div className="w-px h-12 bg-border"></div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-foreground">₹{dailyPrice}</p>
-                  <p className="text-sm text-muted-foreground">Starting At</p>
+                  <p className="text-2xl font-bold text-foreground">₹129</p>
+                  <p className="text-sm text-muted-foreground">Daily Dinner</p>
+                </div>
+                <div className="w-px h-12 bg-border"></div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-foreground">FREE</p>
+                  <p className="text-sm text-muted-foreground">Home Delivery</p>
                 </div>
               </div>
             </div>
@@ -132,8 +145,9 @@ const Index = () => {
               </div>
               {/* Floating card */}
               <div className="absolute -bottom-4 -left-4 bg-card rounded-xl p-4 shadow-warm animate-float">
-                <p className="text-2xl font-bold text-primary">₹{dailyPrice}</p>
-                <p className="text-sm font-medium text-muted-foreground">Starting from</p>
+                <p className="text-xs font-medium text-muted-foreground">New Year Offer</p>
+                <p className="text-2xl font-bold text-primary">₹129</p>
+                <p className="text-sm font-medium text-muted-foreground">Daily Dinner</p>
               </div>
             </div>
           </div>
@@ -143,6 +157,14 @@ const Index = () => {
       {/* Features Section */}
       <section className="py-16 bg-card">
         <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
+              Why Choose Mamma's Food for Daily Dinner?
+            </h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Mamma's Food is a reliable homemade dinner delivery service focused only on one thing — fresh, healthy evening meals.
+            </p>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {features.map((feature, index) => (
               <div
@@ -165,6 +187,83 @@ const Index = () => {
         </div>
       </section>
 
+      {/* Today's Dinner Menu Section */}
+      <section className="py-16 bg-background">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
+              📅 Today's Menu - Thursday, December 25th
+            </span>
+            <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
+              What's Cooking Today?
+            </h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto mb-8">
+              Fresh homemade dinner prepared today - Thursday's special menu with authentic flavors.
+            </p>
+          </div>
+
+          <div className="max-w-4xl mx-auto">
+            <Card className="bg-gradient-to-r from-primary/5 to-secondary/5 border-primary/20">
+              <CardContent className="p-8">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 text-center">
+                  <div className="space-y-2">
+                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                      <span className="text-2xl">🍚</span>
+                    </div>
+                    <h3 className="font-semibold text-foreground">Jeera Rice</h3>
+                    <p className="text-xs text-muted-foreground">Cumin flavored</p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                      <span className="text-2xl">🍲</span>
+                    </div>
+                    <h3 className="font-semibold text-foreground">Moong Dal</h3>
+                    <p className="text-xs text-muted-foreground">Yellow lentils</p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                      <span className="text-2xl">🥘</span>
+                    </div>
+                    <h3 className="font-semibold text-foreground">Aloo Gobi</h3>
+                    <p className="text-xs text-muted-foreground">Potato & cauliflower</p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                      <span className="text-2xl">🫓</span>
+                    </div>
+                    <h3 className="font-semibold text-foreground">Chapati</h3>
+                    <p className="text-xs text-muted-foreground">Fresh & soft</p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                      <span className="text-2xl">🥛</span>
+                    </div>
+                    <h3 className="font-semibold text-foreground">Fresh Curd</h3>
+                    <p className="text-xs text-muted-foreground">Homemade yogurt</p>
+                  </div>
+                </div>
+                <div className="mt-6 pt-6 border-t border-border/50">
+                  <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                      Fresh ingredients
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                      Cooked today
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                      Delivered hot
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
       {/* Meal Plans Section */}
       <DynamicMealPlans />
 
@@ -173,14 +272,11 @@ const Index = () => {
         <section className="py-16 bg-background">
           <div className="container mx-auto px-4">
             <div className="text-center mb-12">
-              <span className="inline-block px-4 py-2 rounded-full bg-secondary/20 text-secondary-foreground text-sm font-medium mb-4">
-                Enhance Your Meal
-              </span>
               <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
-                Delicious Add-Ons
+                Dinner Add-Ons
               </h2>
               <p className="text-muted-foreground max-w-2xl mx-auto">
-                Make your meal even more special with our tasty add-ons. Perfect for those extra cravings!
+                Make your dinner more enjoyable with optional add-ons.
               </p>
             </div>
 
@@ -209,9 +305,20 @@ const Index = () => {
                       </p>
                     )}
 
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <span>✔</span>
+                        <span>Can be added to your dinner order</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <span>✔</span>
+                        <span>Available for selected days</span>
+                      </div>
+                    </div>
+
                     <div className="flex items-center justify-between pt-2 border-t border-border">
                       <div className="text-xs text-muted-foreground">
-                        Per pack
+                        Crispy, freshly prepared
                       </div>
                       <Link to="/order">
                         <Button size="sm" variant="outline" className="hover:bg-primary hover:text-primary-foreground">
@@ -224,18 +331,6 @@ const Index = () => {
                 </Card>
               ))}
             </div>
-
-            <div className="text-center mt-8">
-              <p className="text-sm text-muted-foreground mb-4">
-                Add-ons can be selected for specific days when ordering weekly or monthly plans
-              </p>
-              <Link to="/order">
-                <Button variant="hero" size="lg">
-                  Customize Your Order
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </Link>
-            </div>
           </div>
         </section>
       )}
@@ -247,22 +342,21 @@ const Index = () => {
       <section className="py-16 gradient-warm">
         <div className="container mx-auto px-4 text-center">
           <h2 className="font-display text-3xl md:text-4xl font-bold text-primary-foreground mb-4">
-            Ready to Enjoy Delicious Home Meals?
+            Ready for Fresh Homemade Dinner?
           </h2>
           <p className="text-primary-foreground/80 max-w-2xl mx-auto mb-8">
-            Join hundreds of happy customers who trust us for their daily meals.
-            Order now and taste the difference!
+            Join hundreds of customers who trust Mamma's Food for their daily dinner needs.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link to="/order">
               <Button variant="accent" size="xl">
-                Start Your Order
+                👉 Order Today at ₹129 (New Year Offer)
                 <ArrowRight className="w-5 h-5" />
               </Button>
             </Link>
             <a href="tel:9550043174">
               <Button variant="outline" size="xl" className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
-                Call: 9550043174
+                📞 Call: 9550043174
               </Button>
             </a>
           </div>
