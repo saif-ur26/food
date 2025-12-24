@@ -8,6 +8,7 @@ import { getTodayMenu } from "@/lib/pricing";
 import { isOrderingAllowed, getTimeUntilCutoff } from "@/lib/timeUtils";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import AddOnSelector from "@/components/AddOnSelector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +33,12 @@ interface PricingPlan {
   plan_type: string;
 }
 
+interface AddOnSelection {
+  addonId: string;
+  selectedDates: Date[];
+  quantity: number;
+}
+
 const Order = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
@@ -41,6 +48,8 @@ const Order = () => {
   const [mealPlans, setMealPlans] = useState<PricingPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState(initialPlan);
   const [paymentType, setPaymentType] = useState<"prepaid" | "postpaid">("prepaid");
+  const [addOnSelections, setAddOnSelections] = useState<AddOnSelection[]>([]);
+  const [addOnTotalPrice, setAddOnTotalPrice] = useState(0);
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -87,7 +96,7 @@ const Order = () => {
   const isMultiDayPlan = currentPlan?.plan_type === 'weekly' || currentPlan?.plan_type === 'monthly';
   const effectivePaymentType = isMultiDayPlan ? 'prepaid' : paymentType;
 
-  const totalPrice = effectivePaymentType === "prepaid" ? currentPlan?.current_price || 0 : Math.round((currentPlan?.current_price || 0) * 1.2); // 20% markup for postpaid
+  const totalPrice = effectivePaymentType === "prepaid" ? (currentPlan?.current_price || 0) + addOnTotalPrice : Math.round(((currentPlan?.current_price || 0) + addOnTotalPrice) * 1.2); // 20% markup for postpaid
   const advancePayment = effectivePaymentType === "postpaid" ? Math.round(totalPrice * 0.5) : totalPrice;
   const payableAmount = effectivePaymentType === "postpaid" ? advancePayment : totalPrice;
 
@@ -203,6 +212,11 @@ const Order = () => {
     });
   };
 
+  const handleAddOnSelectionChange = (selections: AddOnSelection[], totalPrice: number) => {
+    setAddOnSelections(selections);
+    setAddOnTotalPrice(totalPrice);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -274,6 +288,26 @@ const Order = () => {
       if (orderError || !orderData) {
         console.error("Order creation error:", orderError);
         throw new Error(orderError?.message || "Failed to create order");
+      }
+
+      // Create add-ons if any are selected
+      if (addOnSelections.length > 0) {
+        for (const selection of addOnSelections) {
+          const { error: addonError } = await supabase
+            .from("order_addons")
+            .insert({
+              order_id: orderData.id,
+              addon_id: selection.addonId,
+              selected_dates: selection.selectedDates.map(date => date.toISOString().split('T')[0]),
+              quantity: selection.quantity,
+              total_price: addOnTotalPrice / addOnSelections.length, // Distribute total price
+            });
+
+          if (addonError) {
+            console.error("Add-on creation error:", addonError);
+            // Don't fail the entire order for add-on errors, just log them
+          }
+        }
       }
 
       // Create Razorpay order with real keys
@@ -736,6 +770,17 @@ const Order = () => {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Add-Ons Selection */}
+              {currentPlan && (
+                <AddOnSelector
+                  planType={currentPlan.plan_type as 'daily' | 'weekly' | 'monthly'}
+                  planDays={currentPlan.days}
+                  startDate={getStartDate()}
+                  onSelectionChange={handleAddOnSelectionChange}
+                  disabled={isSubmitting}
+                />
+              )}
             </div>
 
             {/* Right Column - Order Summary */}
@@ -760,6 +805,31 @@ const Order = () => {
                       <span>Payment:</span>
                       <span className="text-foreground font-medium capitalize">{effectivePaymentType}</span>
                     </div>
+
+                    {/* Add-ons Summary */}
+                    {addOnSelections.length > 0 && (
+                      <div className="space-y-2 pt-2 border-t border-border">
+                        <h4 className="font-medium text-foreground">Add-ons:</h4>
+                        {addOnSelections.map((selection, index) => (
+                          <div key={index} className="text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Chicken Fry</span>
+                              <span className="text-foreground">₹50 × {selection.quantity}</span>
+                            </div>
+                            {selection.selectedDates.length > 0 && (
+                              <div className="text-xs text-muted-foreground">
+                                {selection.selectedDates.length} day(s) selected
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        <div className="flex justify-between text-sm font-medium">
+                          <span>Add-ons Total:</span>
+                          <span className="text-secondary">₹{addOnTotalPrice}</span>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="border-t border-border pt-4">
                       <div className="flex justify-between">
                         <span className="text-foreground font-semibold">Total Amount:</span>

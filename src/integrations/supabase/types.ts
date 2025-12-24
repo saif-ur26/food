@@ -3,6 +3,36 @@ export type Json = | string | number | boolean | null | { [key: string]: Json | 
 export interface Database {
   public: {
     Tables: {
+      add_ons: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          price: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          price: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          price?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       daily_meals: {
         Row: {
           created_at: string
@@ -68,6 +98,49 @@ export interface Database {
           updated_at?: string
         }
         Relationships: []
+      }
+      order_addons: {
+        Row: {
+          addon_id: string
+          created_at: string
+          id: string
+          order_id: string
+          quantity: number
+          selected_dates: string[]
+          total_price: number
+        }
+        Insert: {
+          addon_id: string
+          created_at?: string
+          id?: string
+          order_id: string
+          quantity?: number
+          selected_dates?: string[]
+          total_price: number
+        }
+        Update: {
+          addon_id?: string
+          created_at?: string
+          id?: string
+          order_id?: string
+          quantity?: number
+          selected_dates?: string[]
+          total_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_addons_addon_id_fkey"
+            columns: ["addon_id"]
+            referencedRelation: "add_ons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_addons_order_id_fkey"
+            columns: ["order_id"]
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       orders: {
         Row: {
