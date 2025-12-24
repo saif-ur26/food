@@ -39,7 +39,7 @@ ALTER TABLE auth.users ENABLE ROW LEVEL SECURITY;
 CREATE TYPE app_role AS ENUM ('admin', 'user');
 CREATE TYPE order_status AS ENUM ('pending', 'delivered', 'cancelled');
 CREATE TYPE payment_type AS ENUM ('prepaid', 'postpaid');
-CREATE TYPE plan_type AS ENUM ('daily', 'weekly', 'fifteen_day', 'monthly');
+CREATE TYPE plan_type AS ENUM ('daily', 'weekly', 'monthly');
 
 -- Create user_roles table
 CREATE TABLE user_roles (

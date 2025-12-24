@@ -52,7 +52,6 @@ const Footer = () => {
             <ul className="space-y-2 text-primary-foreground/70">
               <li>Daily Meal - ₹149</li>
               <li>Weekly Plan - ₹899</li>
-              <li>15-Day Plan - ₹1919</li>
               <li>Monthly Plan - ₹3839</li>
             </ul>
           </div>

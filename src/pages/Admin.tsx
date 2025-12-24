@@ -19,7 +19,7 @@ interface Order {
   customer_name: string;
   phone: string;
   address: string;
-  plan_type: "daily" | "weekly" | "fifteen_day" | "monthly";
+  plan_type: "daily" | "weekly" | "monthly";
   payment_type: "prepaid" | "postpaid";
   payment_status: "pending" | "paid" | "failed" | "refunded";
   razorpay_order_id?: string;
@@ -59,7 +59,6 @@ interface OrderAddOn {
 const planLabels: Record<string, string> = {
   daily: "Daily Meal",
   weekly: "Weekly Plan",
-  fifteen_day: "15-Day Plan",
   monthly: "Monthly Plan",
 };
 
@@ -322,7 +321,7 @@ const AdminDashboard = () => {
   }
 
   const dailyOrders = orders.filter(o => o.plan_type === "daily");
-  const weeklyOrders = orders.filter(o => o.plan_type === "weekly" || o.plan_type === "fifteen_day");
+  const weeklyOrders = orders.filter(o => o.plan_type === "weekly");
   const monthlyOrders = orders.filter(o => o.plan_type === "monthly");
 
   const OrderCard = ({ order }: { order: Order }) => {
@@ -948,7 +947,6 @@ const Admin = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   // This is the correct, secure password. In a real app, use an env variable.
   const ADMIN_PASSWORD = "safe@100";
@@ -956,13 +954,6 @@ const Admin = () => {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-
-    // Debug logging
-    console.log("Entered password:", password);
-    console.log("Expected password:", ADMIN_PASSWORD);
-    console.log("Password length:", password.length);
-    console.log("Expected length:", ADMIN_PASSWORD.length);
-    console.log("Passwords match:", password === ADMIN_PASSWORD);
 
     // Trim whitespace and compare
     const trimmedPassword = password.trim();
@@ -974,7 +965,7 @@ const Admin = () => {
     } else {
       toast({
         title: "Access Denied",
-        description: `Incorrect password. Expected: "${ADMIN_PASSWORD}"`,
+        description: "Incorrect password.",
         variant: "destructive"
       });
     }
@@ -994,36 +985,19 @@ const Admin = () => {
           </div>
           <CardTitle className="font-display text-2xl">Admin Access</CardTitle>
           <p className="text-muted-foreground text-sm mt-2">Enter the password to continue</p>
-          <p className="text-xs text-blue-600 mt-1">Expected: safe@100</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <Label htmlFor="admin-password">Password</Label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="text-xs"
-                >
-                  {showPassword ? "Hide" : "Show"}
-                </Button>
-              </div>
+              <Label htmlFor="admin-password">Password</Label>
               <Input
                 id="admin-password"
-                type={showPassword ? "text" : "password"}
+                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter admin password"
                 required
               />
-              {showPassword && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Current input: "{password}"
-                </p>
-              )}
             </div>
             <Button type="submit" variant="hero" className="w-full" disabled={isLoading}>
               {isLoading ? "Verifying..." : "Login"}
